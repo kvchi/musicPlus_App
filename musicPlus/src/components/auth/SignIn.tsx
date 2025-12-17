@@ -73,7 +73,7 @@ const SignIn: React.FC<SignInProps> = ({
 
             if (result.status === "complete") {
                 await setActive({ session: result.createdSessionId });
-                navigate("/dashboard")
+                navigate("/")
             }
         } catch (error: any) {
             setGeneralError(error?.errors?.[0]?.message || "Invalid email or password");
@@ -155,8 +155,15 @@ const SignIn: React.FC<SignInProps> = ({
                     )}
                 </Button>
             </form>
+            <div className="text-right mt-1">
+                <button 
+                type="button"
+                onClick={() => navigate("/forgetPassword")}
+                className="text-sm text-blue-300 hover:underline">Forget password?</button>
+            </div>
         </Card>
     );
+    
 };
 
 export default SignIn;

@@ -2,7 +2,8 @@
 import express from "express";           // Express framework to build our server
 import dotenv from "dotenv";             // dotenv loads environment variables from .env file
 import chalk from "chalk"; 
-import router from   "./routes/images.js"  
+import router from   "./routes/images.js" 
+import cors from "cors"
 
 const app = express();
 // Setup middleware for cloudinary
@@ -20,6 +21,10 @@ const port = process.env.PORT;
 
 // Create an instance of an Express application
 
+cors.allowedOrigins = [
+  "http://localhost:4000",
+  "https://eternal-drake-87.clerk.accounts.dev/v1/client/sign_ups?__clerk_api_version=2025-04-10&_clerk_js_version=5.105.1&__clerk_db_jwt=dvb_35EuZ0btAHMhfxUQbDYdNE5Fxd6"
+]
 // Function that starts the server
 const startServer = async () => {
   try {
