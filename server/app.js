@@ -17,7 +17,7 @@ import connectToRedis from "./config/redis.js";
 dotenv.config();
 
 // Pull the server port from environment variables
-const port = process.env.PORT;
+const port = process.env.PORT || 4000;
 
 // Create an instance of an Express application
 
