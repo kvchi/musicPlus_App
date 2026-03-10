@@ -26,7 +26,7 @@ export const playlist: Track[] = [
   },
   {
     id: 3,
-    title: "Balnce",
+    title: "Balance",
     artist: "Wizkid",
     src: balance,
     cover,
@@ -39,7 +39,7 @@ export const playlist: Track[] = [
     cover,
   },
   {
-    id: 4,
+    id: 5,
     title: "Fiesta",
     artist: "Dj Maphorisa, Dj Tunez, Wizkid, Zaba, Zeh McGeba",
     src: fiesta,
@@ -47,7 +47,7 @@ export const playlist: Track[] = [
   },
   {
     id: 6,
-    title: "Higer Life",
+    title: "Higher Life",
     artist: "Kranium ft Chronic Law",
     src: higherLife,
     cover,
