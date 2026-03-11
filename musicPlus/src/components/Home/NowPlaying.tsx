@@ -57,7 +57,7 @@ export function NowPlaying() {
   const progress = duration ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="p-6 rounded-2xl text-white" style={{ background: bgGradient }}>
+    <div className="p-6 rounded-2xl text-white" style={{ background: bgGradient } as React.CSSProperties}>
       <h3 className="text-xl font-semibold mb-4">Now Playing</h3>
 
       <img

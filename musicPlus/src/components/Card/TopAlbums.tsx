@@ -60,7 +60,7 @@ export default function TopAlbums({artist} : TopAlbumsProps) {
     <section className="p-4">
       <h2 className="text-2xl font-bold mb-4 text-white">Top Albums</h2>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-4">
         {albums.slice(0, 6).map((album) => (
           <MusicCard
             key={`${album.name}-${album.artist.name}`}

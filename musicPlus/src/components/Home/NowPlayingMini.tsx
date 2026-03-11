@@ -10,7 +10,7 @@ export function NowPlayingMini() {
   const track = playlist[currentIndex];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-md border-t border-white/10 ml-80">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-md border-t border-white/10 ">
       <div className="flex items-center justify-between px-4 py-3 max-w-7xl mx-auto">
 
         <div className="flex items-center gap-3 min-w-0">
