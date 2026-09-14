@@ -1,57 +1,33 @@
-// Importing the required packages
-import express from "express";           // Express framework to build our server
-import dotenv from "dotenv";             // dotenv loads environment variables from .env file
-import chalk from "chalk"; 
-import router from   "./routes/images.js" 
-import cors from "cors"
+import chalk from "chalk";
+import dotenv from "dotenv";
+import express from "express";
+
+import connectToDatabase from "./config/db.js";
+
+dotenv.config({ quiet: true });
 
 const app = express();
-// Setup middleware for cloudinary
-app.use('/api', router);
-
-// Importing our custom database & cache connection functions
-import connectToDatabase from "./config/db.js";
-import connectToRedis from "./config/redis.js";
-
-// Load environment variables from the .env file into process.env
-dotenv.config();
-
-// Pull the server port from environment variables
 const port = process.env.PORT || 4000;
 
-// Create an instance of an Express application
+app.get("/health", (_request, response) => {
+  response.status(200).json({ status: "ok" });
+});
 
-cors.allowedOrigins = [
-  "http://localhost:4000",
-  "https://eternal-drake-87.clerk.accounts.dev/v1/client/sign_ups?__clerk_api_version=2025-04-10&_clerk_js_version=5.105.1&__clerk_db_jwt=dvb_35EuZ0btAHMhfxUQbDYdNE5Fxd6"
-]
-// Function that starts the server
-const startServer = async () => {
-  try {
-    // Step 1: Connect to the database (MongoDB)
-    await connectToDatabase();
+const startServer = () => {
+  const server = app.listen(port, () => {
+    console.log(chalk.greenBright(`Server listening on port ${port}.`));
+  });
 
-    // Step 2: Connect to Redis (cache store)
-    await connectToRedis();
+  void connectToDatabase();
 
-    // Step 3: Start the Express server only after connections succeed
-    app.listen(port, () => {
-      // Different logs styled with chalk to track server startup
-      console.log(chalk.bgBlueBright("Initializing server..."));
-      console.log(chalk.bgYellowBright("Server is ready to launch 🚀"));
-      console.log(chalk.greenBright("Launch completed 🎉!"));
-      console.log(
-        chalk.whiteBright("Server is running on", `http://localhost:${port}`)
-      );
-    });
-  } catch (err) {
-    // If any error happens during startup (DB or Redis fails), log the error
-    console.error(chalk.redBright("❌ Failed to start server:"), err.message);
+  server.on("error", () => {
+    console.error(chalk.redBright("Server failed to start."));
+    process.exitCode = 1;
+  });
 
-    // Exit the process with a failure code so it doesn’t keep running
-    process.exit(1);
-  }
+  return server;
 };
 
-// Call the function to actually start the server
 startServer();
+
+export { app, startServer };
