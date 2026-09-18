@@ -1,27 +1,23 @@
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { fetchTopArtist } from "@/api/lastFM";
 import MusicCard from "./MusicCard";
-import { useNavigate } from "react-router-dom";
-
-interface Artist {
-  name: string;
-  listeners: string;
-  image: {
-    "#text": string;
-  }[];
-}
+import type { LastFmArtist } from "@/types/types";
+import { providerMessage } from "@/api/provider-response";
 
 export default function TopArtists() {
   const navigate = useNavigate()
-  const [artists, setArtists] = useState<Artist[]>([]);
+  const [artists, setArtists] = useState<LastFmArtist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchTopArtist()
-      .then((data) => setArtists(data))
-      .catch(() => setError("Failed to load top artists"))
-      .finally(() => setLoading(false));
+    const controller = new AbortController();
+    fetchTopArtist(controller.signal)
+      .then((data) => { if (!controller.signal.aborted) setArtists(data); })
+      .catch((error: unknown) => { if (!controller.signal.aborted) setError(providerMessage(error)); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, []);
 
   if (loading) {
@@ -61,6 +57,7 @@ export default function TopArtists() {
           />
         ))}
       </div>
+
       <div className="text-right my-5">
         <button
         onClick={() => navigate("/topArtists")}
@@ -68,7 +65,7 @@ export default function TopArtists() {
             See More
         </button>
       </div>
-    </section>
+</section>
   );
 }
 

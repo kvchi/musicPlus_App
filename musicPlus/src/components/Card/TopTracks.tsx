@@ -1,29 +1,24 @@
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { fetchTopTracks } from "@/api/lastFM";
 import MusicCard from "./MusicCard";
-import { useNavigate } from "react-router-dom";
-
-interface Track {
-  name: string;
-  listeners: string;
-  image: {
-    "#text": string;
-  }[];
-}
+import type { LastFmTrack } from "@/types/types";
+import { providerMessage } from "@/api/provider-response";
 
 export default function TopTracks() {
     const navigate = useNavigate()
-
-    const [tracks, setTracks] = useState<Track[]>([]);
+    const [tracks, setTracks] = useState<LastFmTrack[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        fetchTopTracks()
-          .then((data) => setTracks(data))
-          .catch(() => setError("Failed to load top tracks"))
-          .finally(() => setLoading(false));
-    
+        const controller = new AbortController();
+        fetchTopTracks(controller.signal)
+          .then((data) => { if (!controller.signal.aborted) setTracks(data); })
+          .catch((error: unknown) => { if (!controller.signal.aborted) setError(providerMessage(error)); })
+          .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+        return () => controller.abort();
+
     }, []);
 
    if (loading) {
@@ -56,13 +51,14 @@ return (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
             {tracks.slice(0,6).map((track) => (
                 <MusicCard
-                    key={track.name}
+                    key={`${track.name}-${track.artist.name}`}
                     image={track.image?.[2]?.["#text"]}
                     title={track.name}
                     subtitle={`${track.listeners} listeners`}
                 />
             ))}
         </div>
+
          <div className="text-right my-5">
         <button
         onClick={() => navigate("/topTracks")}
@@ -70,6 +66,6 @@ return (
             See More
         </button>
       </div>
-    </section>
+</section>
 )
 }

@@ -1,21 +1,21 @@
-// Header.tsx
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MdOutlineKeyboardArrowRight } from "react-icons/md";
 import { BiSearch } from "react-icons/bi";
 import { SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
-import { useNavigate } from "react-router-dom";
-
 
 interface HeaderProps {
-  onSearch: (q: string) => void;
   onMenuToggle?: () => void;
 }
 
-export default function Header({ onSearch, onMenuToggle }: HeaderProps) {
-  const [search, setSearch] = React.useState("");
+export default function Header({ onMenuToggle }: HeaderProps) {
+  const [search, setSearch] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  useEffect(() => {
+    setSearch(new URLSearchParams(location.search).get("q") ?? "");
+  }, [location.search]);
 
   const path =
     location.pathname === "/"
@@ -23,10 +23,27 @@ export default function Header({ onSearch, onMenuToggle }: HeaderProps) {
       : location.pathname.replace("/", "").charAt(0).toUpperCase() +
         location.pathname.replace("/", "").slice(1);
 
+  const updateInput = (value: string) => {
+    setSearch(value);
+    if (value.trim() || location.pathname !== "/search") return;
+    const params = new URLSearchParams(location.search);
+    if (!params.has("q")) return;
+    params.delete("q");
+    const remaining = params.toString();
+    navigate({ pathname: location.pathname, search: remaining ? `?${remaining}` : "", hash: location.hash }, { replace: true });
+  };
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalizedQuery = search.trim();
+    navigate(normalizedQuery ? `/search?q=${encodeURIComponent(normalizedQuery)}` : "/search");
+  };
+
   return (
     <header className="flex items-center justify-between px-4 md:px-8 py-4 bg-emerald-600 w-full z-50">
-
       <button
+        type="button"
+        aria-label="Open navigation"
         className="lg:hidden text-white text-2xl"
         onClick={onMenuToggle}
       >
@@ -39,32 +56,38 @@ export default function Header({ onSearch, onMenuToggle }: HeaderProps) {
         {path !== "Home" && <p>{path}</p>}
       </div>
 
-      <div className="flex-1 lg:flex justify-center px-2 hidden">
+      <form onSubmit={handleSubmit} className="flex-1 lg:flex justify-center px-2 hidden">
         <div className="bg-green-800 p-2 rounded-full border-white border-2 flex items-center gap-2 w-full max-w-xs md:max-w-sm lg:max-w-md">
           <input
-            type="text"
+            ref={inputRef}
+            aria-label="Search tracks"
+            type="search"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(event) => updateInput(event.target.value)}
             placeholder="Search for tracks..."
-            className="rounded-full px-3 md:px-6 py-1 w-full bg-transparent text-white outline-none placeholder-white/70 text-sm md:text-base"
+            className="[&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-cancel-button]:hidden rounded-full px-3 md:px-6 py-1 w-full bg-transparent text-white outline-none placeholder-white/70 text-sm md:text-base"
           />
-
+          {search && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              className="text-white text-lg p-1"
+              onClick={() => { updateInput(""); inputRef.current?.focus(); }}
+            >
+              ×
+            </button>
+          )}
           <button
-            title="submit"
-            onClick={() => {
-              onSearch(search)
-              navigate("/search")
-            }}
-            
+            type="submit"
+            aria-label="Search"
             className="cursor-pointer text-white text-lg"
           >
             <BiSearch />
           </button>
         </div>
-      </div>
+      </form>
 
       <div className="flex items-center gap-2 md:gap-4">
-
         <SignedOut>
           <Link
             to="/sign-in"
@@ -87,10 +110,8 @@ export default function Header({ onSearch, onMenuToggle }: HeaderProps) {
           >
             Dashboard
           </Link>
-
           <UserButton />
         </SignedIn>
-
       </div>
     </header>
   );

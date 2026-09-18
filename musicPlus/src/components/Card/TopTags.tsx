@@ -1,32 +1,30 @@
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { fetchTopTags } from "@/api/lastFM";
 import MusicCard from "./MusicCard";
-import { useNavigate } from "react-router-dom";
-
-interface Tag {
-  name: string;
-  count: number;
-}
+import type { LastFmTag } from "@/types/types";
+import { providerMessage } from "@/api/provider-response";
 
 export default function TopTags() {
     const navigate = useNavigate()
-
-    const [tags, setTags] = useState<Tag[]>([]);
+    const [tags, setTags] = useState<LastFmTag[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        fetchTopTags()
-          .then((data) => setTags(data))
-          .catch(() => setError("Failed to load top tags"))
-          .finally(() => setLoading(false));
-    
+        const controller = new AbortController();
+        fetchTopTags(controller.signal)
+          .then((data) => { if (!controller.signal.aborted) setTags(data); })
+          .catch((error: unknown) => { if (!controller.signal.aborted) setError(providerMessage(error)); })
+          .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+        return () => controller.abort();
+
     }, []);
 
 if (loading) {
     return (
          <section className="p-4 text-center">
-            <p className="text-gray-500">Loading top tracks...</p>
+            <p className="text-gray-500">Loading top tags...</p>
         </section>
     )
 }
@@ -55,10 +53,11 @@ return (
                 <MusicCard
                     key={tag.name}
                     title={tag.name}
-                    subtitle={`${tag.count} tracks`}
+                    subtitle={`${tag.taggings} taggings`}
                 />
             ))}
         </div>
+
         <div className="text-right my-5">
         <button
         onClick={() => navigate("/topTracks")}
@@ -66,6 +65,6 @@ return (
             See More
         </button>
       </div>
-        </section>   
+</section>
 )
 }

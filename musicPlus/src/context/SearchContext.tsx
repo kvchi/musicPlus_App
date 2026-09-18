@@ -3,7 +3,11 @@ import type { Track } from "../types/types";
 
 interface SearchContextType {
   results: Track[];
-  setResults: (tracks: Track[]) => void;
+  query: string;
+  isLoading: boolean;
+  error: string | null;
+  searchTracks: (query: string) => Promise<void>;
+  cancelSearch: () => void;
 }
 
 export const SearchContext = createContext<SearchContextType | null>(null);

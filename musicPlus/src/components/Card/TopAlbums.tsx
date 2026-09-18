@@ -1,18 +1,9 @@
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { fetchArtistTopAlbums } from "@/api/lastFM";
 import MusicCard from "./MusicCard";
-import { useNavigate } from "react-router-dom";
-
-interface Album {
-  name: string;
-  playcount: string;
-  artist: {
-    name: string;
-  };
-  image: {
-    "#text": string;
-  }[];
-}
+import type { LastFmAlbum } from "@/types/types";
+import { providerMessage } from "@/api/provider-response";
 
 interface TopAlbumsProps {
     artist: string;
@@ -20,16 +11,20 @@ interface TopAlbumsProps {
 
 export default function TopAlbums({artist} : TopAlbumsProps) {
   const navigate = useNavigate();
-
-  const [albums, setAlbums] = useState<Album[]>([]);
+  const [albums, setAlbums] = useState<LastFmAlbum[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchArtistTopAlbums(artist)
-      .then((data) => setAlbums(data))
-      .catch(() => setError("Failed to load top albums"))
-      .finally(() => setLoading(false));
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    setAlbums([]);
+    fetchArtistTopAlbums(artist, controller.signal)
+      .then((data) => { if (!controller.signal.aborted) setAlbums(data); })
+      .catch((error: unknown) => { if (!controller.signal.aborted) setError(providerMessage(error)); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, [artist]);
 
   if (loading) {
@@ -63,13 +58,14 @@ export default function TopAlbums({artist} : TopAlbumsProps) {
       <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-4">
         {albums.slice(0, 6).map((album) => (
           <MusicCard
-            key={`${album.name}-${album.artist.name}`}
+            key={`${album.name}-${album.artist?.name ?? artist}`}
             image={album.image?.[2]?.["#text"]}
             title={album.name}
-            subtitle={album.artist.name}
+            subtitle={album.artist?.name ?? artist}
           />
         ))}
       </div>
+
 
       <div className="text-right my-5">
         <button
@@ -79,6 +75,6 @@ export default function TopAlbums({artist} : TopAlbumsProps) {
           See More
         </button>
       </div>
-    </section>
+</section>
   );
 }
