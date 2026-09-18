@@ -1,4 +1,4 @@
-import { useMusicPlayer } from "@/context/MusicContext";
+import { useMusicPlayer } from "@/context/music-player-context";
 import { playlist } from "@/data/MusicData";
 import { CiPause1, CiPlay1 } from "react-icons/ci";
 import { IoPlayBackOutline, IoPlayForwardOutline } from "react-icons/io5";

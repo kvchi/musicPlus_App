@@ -1,3 +1,4 @@
+import { activateCompletedSession } from "@/lib/activate-session";
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,9 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Alert } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useSignIn } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
+import { authErrorMessage, incompleteSignInMessage } from '@/lib/auth-feedback';
 
 export default function ForgetPassword() {
-    const { signIn, isLoaded } = useSignIn();
+    const { signIn, isLoaded, setActive } = useSignIn();
+    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [codeSent, setCodeSent] = useState(false);
     const [resetCode, setRestCode] = useState('');
@@ -18,7 +22,7 @@ export default function ForgetPassword() {
 
     const handleSendCode = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!isLoaded) return;
+        if (!isLoaded || !signIn || loading) return;
         setLoading(true);
         setError("");
 
@@ -28,14 +32,14 @@ export default function ForgetPassword() {
                 identifier: email,
             });
             setCodeSent(true);
-        } catch (err: any) {
-            setError(err.errors[0].message || "Failed to send reset code");
+        } catch (error: unknown) {
+            setError(authErrorMessage(error, "Unable to send a reset code. Please try again."));
         } finally {
             setLoading(false);
         }}
     const handleResetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!isLoaded) return;
+        if (!isLoaded || !signIn || loading) return;
         setLoading(true);
         setError("");
 
@@ -46,11 +50,13 @@ export default function ForgetPassword() {
                 password: newPassword,
             });
 
-            if (result.status === "complete") {
-                window.location.href = "/";
+            if (result.status === "complete" && result.createdSessionId) {
+                await activateCompletedSession(setActive, result.createdSessionId, () => navigate("/"), setError);
+            } else {
+                setError(incompleteSignInMessage(result.status));
             }
-        } catch (err: any) {
-            setError(err.errors[0].message || "Reset failed");
+        } catch (error: unknown) {
+            setError(authErrorMessage(error, "Unable to complete password reset. Please try again."));
         } finally {
             setLoading(false);
         }}
@@ -69,8 +75,9 @@ export default function ForgetPassword() {
             {!codeSent ? (
                 <form onSubmit={handleSendCode} className='space-y-4'>
                     <div>
-                        <Label htmlFor="">Email</Label>
+                        <Label htmlFor="reset-email">Email</Label>
                         <Input
+                        id="reset-email"
                         type='email'
                         placeholder='Enter your email'
                         value={email}
@@ -78,13 +85,14 @@ export default function ForgetPassword() {
                         required
                         />
                     </div>
-                    <Button type='submit' className='w-full' disabled={loading}>{loading ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : 'Send reset Code'}</Button>
+                    <Button type='submit' className='w-full' disabled={!isLoaded || loading}>{loading ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : 'Send reset Code'}</Button>
                 </form>
             ):(
                 <form onSubmit={handleResetPassword} className='space-y-4'>
                     <div>
-                        <Label htmlFor="">Reset Code</Label>
+                        <Label htmlFor="reset-code">Reset Code</Label>
                         <Input
+                        id="reset-code"
                         type='text'
                         placeholder='Enter the code from your email'
                         value={resetCode}
@@ -93,8 +101,9 @@ export default function ForgetPassword() {
                         />
                     </div>
                     <div>
-                        <Label htmlFor="">New Password</Label>
+                        <Label htmlFor="new-password">New Password</Label>
                         <Input
+                        id="new-password"
                         type='password'
                         placeholder='Enter your new password'
                         value={newPassword}
@@ -102,7 +111,7 @@ export default function ForgetPassword() {
                         required
                         />
                     </div>
-                    <Button type='submit' className='w-full' disabled={loading}>
+                    <Button type='submit' className='w-full' disabled={!isLoaded || loading}>
                         {loading ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : 'Reset Password'}
                     </Button>
                 </form>

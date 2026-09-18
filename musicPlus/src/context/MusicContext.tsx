@@ -1,6 +1,5 @@
+import { MusicContext } from "./music-player-context";
 import {
-  createContext,
-  useContext,
   useEffect,
   useRef,
   useState,
@@ -8,16 +7,7 @@ import {
 import type { ReactNode } from "react";
 import { playlist } from "@/data/MusicData";
 
-interface MusicContextType {
-  currentIndex: number;
-  isPlaying: boolean;
-  togglePlay: () => void;
-  handleNext: () => void;
-  handlePrev: () => void;
-  audioRef: React.RefObject<HTMLAudioElement>;
-}
 
-const MusicContext = createContext<MusicContextType | undefined>(undefined);
 
 export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
   const audioRef = useRef<HTMLAudioElement>(null!);
@@ -103,14 +93,4 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
       {children}
     </MusicContext.Provider>
   );
-};
-
-export const useMusicPlayer = () => {
-  const context = useContext(MusicContext);
-  if (!context) {
-    throw new Error(
-      "useMusicPlayer must be used within a MusicContextProvider"
-    );
-  }
-  return context;
 };

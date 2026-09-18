@@ -1,86 +1,73 @@
-import React, { useState } from "react";
+import { activateCompletedSession } from "@/lib/activate-session";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { AlertCircle, Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 import { useClerk, useSignIn } from "@clerk/clerk-react";
-import { useNavigate } from "react-router-dom"
+import { authErrorMessage, incompleteSignInMessage } from "@/lib/auth-feedback";
 
 interface SignInProps {
-    title?: string;
-    subtitle?: string;
+  title?: string;
+  subtitle?: string;
 }
 
 interface FormErrors {
-    email?: string;
-    password?: string;
+  email?: string;
+  password?: string;
 }
 
-const SignIn: React.FC<SignInProps> = ({ 
-    title = "Welcome back",
-    subtitle = "Sign in to your account",
-}) => {
-    const [email, setEmail] = useState<string>("");
-    const [password, setPassword] = useState<string>("");
-    const [showPassword, setShowPassword] = useState<boolean>(false);
-    const [loading, setLoading] = useState<boolean>(false);
-    const [errors, setErrors] = useState<FormErrors>({});
-    const [generalError, setGeneralError] = useState<string | null>(null);
-    const { signIn, isLoaded } = useSignIn();
-    const { setActive } = useClerk();
+export default function SignIn({
+  title = "Welcome back",
+  subtitle = "Sign in to your account",
+}: SignInProps) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [generalError, setGeneralError] = useState<string | null>(null);
+  const { signIn, isLoaded } = useSignIn();
+  const { setActive } = useClerk();
+  const navigate = useNavigate();
 
-    const navigate = useNavigate();
+  const validate = () => {
+    const nextErrors: FormErrors = {};
+    if (!email) nextErrors.email = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(email)) nextErrors.email = "Enter a valid email address";
+    if (!password) nextErrors.password = "Password is required";
+    return nextErrors;
+  };
 
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nextErrors = validate();
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+    if (!isLoaded || !signIn || loading) return;
 
-    // Validation function
-    const validate = (): FormErrors => {
-        const newErrors: FormErrors = {};
-        if (!email) {
-            newErrors.email = "Email is required";
-        } else if (!/\S+@\S+\.\S+/.test(email)) {
-            newErrors.email = "Not a valid email address";
-        }
-        if (!password) {
-            newErrors.password = "Password is required";
-        }
-        return newErrors;
-    };
+    setErrors({});
+    setGeneralError(null);
+    setLoading(true);
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const newErrors = validate();
-        
-        if (Object.keys(newErrors).length > 0) {
-            setErrors(newErrors);
-            return;
-        }
-
-        if (!isLoaded || !signIn) {
-            return;
-        }
-
-        setErrors({});
-        setGeneralError('');
-        setLoading(true);
-       
-        try {
-            const result = await signIn.create({
-                identifier: email,
-                password,
-            });
-
-            if (result.status === "complete") {
-                await setActive({ session: result.createdSessionId });
-                navigate("/")
-            }
-        } catch (error: any) {
-            setGeneralError(error?.errors?.[0]?.message || "Invalid email or password");
-        } finally {
-            setLoading(false);
-        }
-    };
+    try {
+      const result = await signIn.create({ identifier: email, password });
+      if (result.status === "complete" && result.createdSessionId) {
+        await activateCompletedSession(setActive, result.createdSessionId, () => navigate("/"), setGeneralError);
+      } else {
+        setGeneralError(incompleteSignInMessage(result.status));
+      }
+    } catch (error: unknown) {
+      setGeneralError(authErrorMessage(error, "Unable to sign in. Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  };
 
     return (
         <Card className="w-full max-w-md p-8 my-10 mx-auto">
@@ -143,7 +130,7 @@ const SignIn: React.FC<SignInProps> = ({
                 <Button 
                     type="submit" 
                     className="w-full" 
-                    disabled={loading}
+                    disabled={!isLoaded || loading}
                 >
                     {loading ? (
                         <>
@@ -164,6 +151,4 @@ const SignIn: React.FC<SignInProps> = ({
         </Card>
     );
     
-};
-
-export default SignIn;
+}

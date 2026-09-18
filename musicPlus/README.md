@@ -71,3 +71,7 @@ export default defineConfig([
   },
 ])
 ```
+
+## Phase 1B authentication limitations
+
+See [the repository README](../README.md#authentication-limitations-phase-1b) for unsupported MFA/session-task flows. Run `npm test` and `npm run typecheck` for mocked regression checks.
