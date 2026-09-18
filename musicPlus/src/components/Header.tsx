@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MdOutlineKeyboardArrowRight } from "react-icons/md";
 import { BiSearch } from "react-icons/bi";
 import { SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
+import { Menu } from "lucide-react";
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -40,32 +41,32 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   };
 
   return (
-    <header className="flex items-center justify-between px-4 md:px-8 py-4 bg-emerald-600 w-full z-50">
+    <header className="flex items-center gap-3 px-4 md:px-8 py-4 bg-emerald-600 w-full z-50">
       <button
         type="button"
         aria-label="Open navigation"
-        className="lg:hidden text-white text-2xl"
+        className="lg:hidden text-white"
         onClick={onMenuToggle}
       >
-        ☰
+        <Menu size={24} />
       </button>
 
-      <div className="hidden md:flex items-center gap-2 text-white text-sm md:text-base">
+      <div className="hidden xl:flex items-center gap-2 text-white text-sm md:text-base">
         <p>Home</p>
         <MdOutlineKeyboardArrowRight />
         {path !== "Home" && <p>{path}</p>}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex-1 lg:flex justify-center px-2 hidden">
-        <div className="bg-green-800 p-2 rounded-full border-white border-2 flex items-center gap-2 w-full max-w-xs md:max-w-sm lg:max-w-md">
+      <form onSubmit={handleSubmit} className="flex-1 flex justify-center min-w-0">
+        <div className="bg-green-800 p-1.5 sm:p-2 rounded-full border-white border flex items-center gap-1 w-full max-w-md">
           <input
             ref={inputRef}
             aria-label="Search tracks"
             type="search"
             value={search}
             onChange={(event) => updateInput(event.target.value)}
-            placeholder="Search for tracks..."
-            className="[&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-cancel-button]:hidden rounded-full px-3 md:px-6 py-1 w-full bg-transparent text-white outline-none placeholder-white/70 text-sm md:text-base"
+            placeholder="Search tracks..."
+            className="[&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-cancel-button]:hidden rounded-full px-2 sm:px-4 py-1 w-full min-w-0 bg-transparent text-white outline-none placeholder-white/70 text-sm md:text-base"
           />
           {search && (
             <button
@@ -80,18 +81,18 @@ export default function Header({ onMenuToggle }: HeaderProps) {
           <button
             type="submit"
             aria-label="Search"
-            className="cursor-pointer text-white text-lg"
+            className="cursor-pointer text-white text-lg p-1 disabled:cursor-wait disabled:opacity-60"
           >
             <BiSearch />
           </button>
         </div>
       </form>
 
-      <div className="flex items-center gap-2 md:gap-4">
+      <div className="flex items-center gap-2 md:gap-4 shrink-0">
         <SignedOut>
           <Link
             to="/sign-in"
-            className="border-2 px-2 py-1 rounded-lg text-white text-xs md:text-sm"
+            className="hidden sm:block border-2 px-2 py-1 rounded-lg text-white text-xs md:text-sm"
           >
             Sign In
           </Link>
@@ -106,7 +107,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         <SignedIn>
           <Link
             to="/dashboard"
-            className="border-2 border-white px-2 py-1 rounded-lg text-white text-xs md:text-sm"
+            className="hidden sm:block border-2 border-white px-2 py-1 rounded-lg text-white text-xs md:text-sm"
           >
             Dashboard
           </Link>

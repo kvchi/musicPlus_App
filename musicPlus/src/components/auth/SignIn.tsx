@@ -1,6 +1,6 @@
 import { activateCompletedSession } from "@/lib/activate-session";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,86 +69,53 @@ export default function SignIn({
     }
   };
 
-    return (
-        <Card className="w-full max-w-md p-8 my-10 mx-auto">
-            <div className="mb-6 text-center">
-                <h2 className="text-2xl font-bold">{title}</h2>
-                <p className="text-gray-600 mt-2">{subtitle}</p>
+  return (
+    <main className="min-h-screen bg-black px-4 py-10">
+      <Card className="w-full max-w-md p-8 mx-auto">
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold">{title}</h1>
+          <p className="text-gray-600 mt-2">{subtitle}</p>
+        </div>
+
+        {generalError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <span className="ml-2">{generalError}</span>
+          </Alert>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <div className="relative mt-1">
+              <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input id="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="pl-10" placeholder="you@example.com" />
             </div>
+            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+          </div>
 
-            {generalError && (
-                <Alert variant="destructive" className="mb-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <span className="ml-2">{generalError}</span>
-                </Alert>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <Label htmlFor="email">Email</Label>
-                    <div className="relative mt-1">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input
-                            id="email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="pl-10"
-                            placeholder="you@example.com"
-                        />
-                    </div>
-                    {errors.email && (
-                        <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-                    )}
-                </div>
-
-                <div>
-                    <Label htmlFor="password">Password</Label>
-                    <div className="relative mt-1">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input
-                            id="password"
-                            type={showPassword ? "text" : "password"}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="pl-10 pr-10"
-                            placeholder="••••••••"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                        >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                    </div>
-                    {errors.password && (
-                        <p className="text-red-500 text-sm mt-1">{errors.password}</p>
-                    )}
-                </div>
-
-                <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={!isLoaded || loading}
-                >
-                    {loading ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Signing in...
-                        </>
-                    ) : (
-                        "Sign In"
-                    )}
-                </Button>
-            </form>
-            <div className="text-right mt-1">
-                <button 
-                type="button"
-                onClick={() => navigate("/forgetPassword")}
-                className="text-sm text-blue-300 hover:underline">Forget password?</button>
+          <div>
+            <Label htmlFor="password">Password</Label>
+            <div className="relative mt-1">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} className="pl-10 pr-10" placeholder="Enter your password" />
+              <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((visible) => !visible)} className="absolute right-3 top-3 text-gray-400 hover:text-gray-600">
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
-        </Card>
-    );
-    
+            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
+          </div>
+
+          <Button type="submit" className="w-full" disabled={!isLoaded || loading}>
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Signing in...</> : "Sign In"}
+          </Button>
+        </form>
+
+        <div className="mt-3 flex justify-between text-sm">
+          <Link to="/" className="text-gray-600 hover:underline">Back home</Link>
+          <Link to="/forgot-password" className="text-blue-600 hover:underline">Forgot password?</Link>
+        </div>
+      </Card>
+    </main>
+  );
 }
