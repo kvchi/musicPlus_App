@@ -10,6 +10,13 @@ interface MusicContextType {
   isLoading: boolean;
   progress: number;
   duration: number;
+  canSeek: boolean;
+  volume: number;
+  isMuted: boolean;
+  controlsError: string | null;
+  seek: (seconds: number) => void;
+  setVolume: (value: number) => void;
+  toggleMute: () => void;
   error: string | null;
   playTrack: (track: PlayableTrack) => void;
   playQueue: (tracks: readonly PlayableTrack[], startIndex: number) => void;

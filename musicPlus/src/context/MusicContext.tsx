@@ -9,6 +9,20 @@ const copyQueue = (tracks: readonly PlayableTrack[]) => Object.freeze(
   tracks.map((track) => Object.freeze({ ...track })),
 );
 
+function seekRanges(audio: HTMLAudioElement): [number, number][] {
+  if (audio.error || audio.readyState < 1 || !Number.isFinite(audio.duration) || audio.duration <= 0) return [];
+  try {
+    const ranges = audio.seekable;
+    const result: [number, number][] = [];
+    for (let index = 0; index < ranges.length; index++) {
+      const start = Math.max(0, ranges.start(index));
+      const end = Math.min(audio.duration, ranges.end(index));
+      if (Number.isFinite(start) && Number.isFinite(end) && end > start) result.push([start, end]);
+    }
+    return result;
+  } catch { return []; }
+}
+
 export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
   const audioRef = useRef<HTMLAudioElement>(null!);
   const [selection, setSelection] = useState<Selection>(() => ({
@@ -19,6 +33,11 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [canSeek, setCanSeek] = useState(false);
+  const [volume, updateVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [controlsError, setControlsError] = useState<string | null>(null);
+  const lastNonzeroVolumeRef = useRef(1);
   const [error, setError] = useState<string | null>(null);
   const intentRef = useRef(false);
   const operationRef = useRef(0);
@@ -27,12 +46,88 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
   const activeRef = useRef(false);
   const invalidateOperation = useCallback(() => ++operationRef.current, []);
 
+  const matchesSource = useCallback(() => {
+    const { queue, index } = selectionRef.current;
+    const track = queue[index];
+    const audio = audioRef.current;
+    return Boolean(track && audio.src === new URL(track.audioUrl, document.baseURI).href &&
+      (!audio.currentSrc || audio.currentSrc === audio.src));
+  }, []);
+
+  // The rendered selection is a token: an old control callback cannot seek a
+  // newly selected source, even before React has rendered that selection.
+  const seek = useCallback((seconds: number) => {
+    if (!activeRef.current || selection !== selectionRef.current || !matchesSource() || !Number.isFinite(seconds)) return;
+    const audio = audioRef.current;
+    const ranges = seekRanges(audio);
+    if (!ranges.length) { setCanSeek(false); return; }
+    const bounded = Math.max(0, Math.min(seconds, audio.duration));
+    let target = ranges[0][0];
+    for (const [start, end] of ranges) {
+      const candidate = Math.max(start, Math.min(bounded, end));
+      if (Math.abs(candidate - bounded) < Math.abs(target - bounded)) target = candidate;
+    }
+    try {
+      audio.currentTime = target;
+      if (target < audio.duration) endedVersionRef.current = -1;
+      setControlsError(null);
+      // No optimistic progress and no deferred seek to apply to another source.
+    } catch {
+      setCanSeek(false);
+      setControlsError("Seeking is unavailable for this audio. Playback can continue.");
+    }
+  }, [matchesSource, selection]);
+
+  const syncVolume = useCallback(() => {
+    const audio = audioRef.current;
+    updateVolume(audio.volume);
+    setIsMuted(audio.muted || audio.volume === 0);
+    if (!audio.muted && audio.volume > 0) lastNonzeroVolumeRef.current = audio.volume;
+  }, []);
+  const setVolume = useCallback((value: number) => {
+    if (!activeRef.current || !Number.isFinite(value)) return;
+    const audio = audioRef.current;
+    const target = Math.max(0, Math.min(1, value));
+    if (!audio.muted && audio.volume > 0) lastNonzeroVolumeRef.current = audio.volume;
+    try {
+      if (target > 0) audio.muted = false;
+      audio.volume = target;
+      setControlsError(Math.abs(audio.volume - target) > 0.001 || (target > 0 && audio.muted)
+        ? "Your browser cannot adjust audio volume here. Use your device volume controls."
+        : null);
+    } catch {
+      setControlsError("Your browser cannot adjust audio volume here. Use your device volume controls.");
+    }
+    syncVolume();
+  }, [syncVolume]);
+  const toggleMute = useCallback(() => {
+    if (!activeRef.current) return;
+    const audio = audioRef.current;
+    try {
+      if (audio.muted || audio.volume === 0) {
+        const target = lastNonzeroVolumeRef.current;
+        audio.muted = false;
+        audio.volume = target;
+        setControlsError(audio.muted || Math.abs(audio.volume - target) > 0.001
+          ? "Your browser cannot restore audio volume here. Use your device volume controls." : null);
+      } else {
+        lastNonzeroVolumeRef.current = audio.volume;
+        audio.muted = true;
+        setControlsError(audio.muted ? null : "Your browser cannot mute audio here. Use your device volume controls.");
+      }
+    } catch {
+      setControlsError("Your browser cannot change audio volume here. Use your device volume controls.");
+    }
+    syncVolume();
+  }, [syncVolume]);
+
   const fail = useCallback((message: string) => {
     invalidateOperation();
     intentRef.current = false;
     setIsPlaying(false);
     setIsLoading(false);
     setError(message);
+    setCanSeek(false);
     audioRef.current.pause();
   }, [invalidateOperation]);
 
@@ -69,6 +164,8 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(false);
     setProgress(0);
     setDuration(0);
+    setCanSeek(false);
+    setControlsError(null);
     setError(null);
     const track = queue[index];
     if (!track) {
@@ -126,8 +223,12 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
     const { queue, index } = selectionRef.current;
     if (!queue.length) return;
     if (audio.currentTime > 2) {
-      audio.currentTime = 0;
-      setProgress(0);
+      try {
+        audio.currentTime = 0;
+        endedVersionRef.current = -1;
+      } catch {
+        setControlsError("Seeking is unavailable for this audio. Playback can continue.");
+      }
     } else {
       select(queue, (index + queue.length - 1) % queue.length, intentRef.current);
     }
@@ -137,18 +238,13 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const audio = audioRef.current;
     activeRef.current = true;
-    const matchesSource = () => {
-      const { queue, index } = selectionRef.current;
-      const track = queue[index];
-      return Boolean(track && audio.src === new URL(track.audioUrl, document.baseURI).href &&
-        (!audio.currentSrc || audio.currentSrc === audio.src));
-    };
     const updateTime = () => {
-      if (matchesSource()) setProgress(Number.isFinite(audio.currentTime) ? audio.currentTime : 0);
+      if (matchesSource() && audio.readyState >= 1) setProgress(Number.isFinite(audio.currentTime) ? audio.currentTime : 0);
     };
     const updateMetadata = () => {
       if (!matchesSource()) return;
       setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+      setCanSeek(seekRanges(audio).length > 0);
       updateTime();
     };
     const onPlay = () => {
@@ -194,22 +290,25 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
         : "This audio could not be played. Retry or choose another track.");
     };
     const onEmptied = () => {
-      if (matchesSource() && audio.readyState === 0) { setProgress(0); setDuration(0); }
+      if (matchesSource() && audio.readyState === 0) { setProgress(0); setDuration(0); setCanSeek(false); }
     };
     const listeners = {
       play: onPlay, playing: onPlaying, pause: onPause, ended: onEnded,
       waiting: onWaiting, error: onError, timeupdate: updateTime,
       loadedmetadata: updateMetadata, durationchange: updateMetadata, emptied: onEmptied,
+      progress: updateMetadata, canplay: updateMetadata, seeking: updateTime,
+      seeked: updateMetadata, volumechange: syncVolume,
     };
     for (const [name, listener] of Object.entries(listeners)) audio.addEventListener(name, listener);
     updateMetadata();
+    syncVolume();
     return () => {
       activeRef.current = false;
       invalidateOperation();
       for (const [name, listener] of Object.entries(listeners)) audio.removeEventListener(name, listener);
       audio.pause();
     };
-  }, [fail, invalidateOperation, select]);
+  }, [fail, invalidateOperation, matchesSource, select, syncVolume]);
 
   // Initial local selection is paused. All later source changes occur in controls,
   // allowing play() to run synchronously within the explicit user interaction.
@@ -227,6 +326,7 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
   return <MusicContext.Provider value={{
     selectedTrack: selection.queue[selection.index] ?? null, queue: selection.queue,
     currentIndex: selection.index, isPlaying, isLoading, progress, duration, error,
+    canSeek, volume, isMuted, controlsError, seek, setVolume, toggleMute,
     playTrack, playQueue, retryPlayback, togglePlay, handleNext, handlePrev, audioRef,
   }}><audio ref={audioRef} preload="metadata" />{children}</MusicContext.Provider>;
 };

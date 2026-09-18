@@ -24,6 +24,14 @@ Manual Next wraps from the last track to the first. Previous restarts the curren
 
 `playTrack(track)` starts a singleton queue. `playQueue(tracks, startIndex)` copies its input before selection. Empty input clears playback; an invalid index or unavailable audio is rejected safely without replacing the current queue. Search changes, clearing, and navigation do not alter an already selected queue. Retry reloads the selected source from the beginning. Actual playing state comes from media events; pending or rejected promises are not reported as successful playback.
 
+## Seek and volume (Phase 3A)
+
+Full and mini players control the same audio element through the provider. Seeking is disabled until the element reports a positive finite duration and usable seekable ranges. Targets clamp to the duration and nearest currently seekable range, including gaps; nonfinite inputs are ignored. No seek is queued while loading. Track selection invalidates old seek callbacks, and displayed progress comes from current media events rather than an optimistic slider position. Seeking preserves playing/paused intent.
+
+Volume clamps to 0–1. Mute retains the previous nonzero level, and Unmute restores it; moving the volume slider above zero also unmutes. Both views follow actual element properties and `volumechange`. Volume stays shared across route and track changes, but nothing is persisted across page loads. Native range controls support arrow keys, Home/End, and visible keyboard focus.
+
+Some browsers/platforms control volume through the device instead of the media element. Rejected or ignored property changes show safe guidance and retain the reported element state. A successful property readback cannot prove the audible hardware level. Use device controls when needed. Seeking support and available ranges depend on the audio server and browser. Reference: [HTML media seeking](https://html.spec.whatwg.org/multipage/media.html#seeking) and [volume](https://html.spec.whatwg.org/multipage/media.html#dom-media-volume).
+
 ## Project structure
 
 ```text
@@ -115,7 +123,7 @@ Never commit real credentials. Both local `.env` files are ignored by Git.
 
 ## Portfolio roadmap
 
-1. Add seek, volume, shuffle, repeat, and queue editing controls.
+1. Add shuffle, repeat, and queue editing controls.
 2. Build authenticated MongoDB playlists, favorites, and listening history.
 3. Extend existing component tests with API integration and browser end-to-end coverage.
 4. Deploy the client and API and add screenshots, architecture notes, and a demo video.

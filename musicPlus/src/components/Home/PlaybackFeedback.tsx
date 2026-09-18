@@ -2,8 +2,9 @@ import { useMusicPlayer } from "@/context/music-player-context";
 import type { PlayableTrack } from "@/types/playable-track";
 
 export function PlaybackFeedback() {
-  const { isLoading, error, selectedTrack, retryPlayback } = useMusicPlayer();
+  const { isLoading, error, controlsError, selectedTrack, retryPlayback } = useMusicPlayer();
   return <>
+    {controlsError && <p role="status" className="mt-2 text-sm text-neutral-300">{controlsError}</p>}
     {isLoading && <p role="status" className="mt-2 text-sm text-neutral-300">Loading audio…</p>}
     {error && <div role="alert" className="mt-2 text-sm text-red-300">
       <p>{error}</p>

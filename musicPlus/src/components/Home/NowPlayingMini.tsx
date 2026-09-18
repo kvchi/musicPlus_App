@@ -1,6 +1,7 @@
 import { useMusicPlayer } from "@/context/music-player-context";
 import { headphones } from "@/assets/images";
 import { PlaybackFeedback, TrackAttribution } from "./PlaybackFeedback";
+import { SeekControl, VolumeControls } from "./MediaControls";
 import { CiPause1, CiPlay1 } from "react-icons/ci";
 import { IoPlayBackOutline, IoPlayForwardOutline } from "react-icons/io5";
 
@@ -45,6 +46,9 @@ export function NowPlayingMini() {
           </button>
         </div>
 
+      </div>
+      <div className="grid grid-cols-2 gap-4 max-w-7xl mx-auto px-4">
+        <SeekControl label="Mini player" /><VolumeControls label="Mini player" />
       </div>
       <div className="max-w-7xl mx-auto px-4 pb-2"><PlaybackFeedback /></div>
     </div>

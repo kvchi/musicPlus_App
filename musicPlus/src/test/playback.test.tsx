@@ -39,10 +39,10 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-let media: WeakMap<HTMLMediaElement, { paused: boolean; ended: boolean; readyState: number; error: { code: number } | null; currentSrc: string }>;
+let media: WeakMap<HTMLMediaElement, { paused: boolean; ended: boolean; readyState: number; error: { code: number } | null; currentSrc: string; ranges: [number, number][] }>;
 function state(audio: HTMLMediaElement) {
   let value = media.get(audio);
-  if (!value) { value = { paused: true, ended: false, readyState: 4, error: null, currentSrc: "" }; media.set(audio, value); }
+  if (!value) { value = { paused: true, ended: false, readyState: 4, error: null, currentSrc: "", ranges: [[0, 180]] }; media.set(audio, value); }
   return value;
 }
 function start(audio: HTMLMediaElement, promise = Promise.resolve()) {
@@ -58,6 +58,10 @@ beforeEach(() => {
   vi.spyOn(HTMLMediaElement.prototype, "ended", "get").mockImplementation(function (this: HTMLMediaElement) { return state(this).ended; });
   vi.spyOn(HTMLMediaElement.prototype, "duration", "get").mockReturnValue(180);
   vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockImplementation(function (this: HTMLMediaElement) { return state(this).readyState; });
+  vi.spyOn(HTMLMediaElement.prototype, "seekable", "get").mockImplementation(function (this: HTMLMediaElement) {
+    const ranges = state(this).ranges;
+    return { length: ranges.length, start: index => ranges[index][0], end: index => ranges[index][1] };
+  });
   // jsdom does not implement MediaError; keep this shim confined to this file.
   Object.defineProperty(HTMLMediaElement.prototype, "error", { configurable: true,
     get: function (this: HTMLMediaElement) { return state(this).error; } });
@@ -268,7 +272,7 @@ describe("playback lifecycle", () => {
     const { audio, unmount } = player(true);
     toggle();
     unmount();
-    for (const type of ["play", "playing", "pause", "ended", "waiting", "error", "timeupdate", "loadedmetadata", "durationchange", "emptied"]) {
+    for (const type of ["play", "playing", "pause", "ended", "waiting", "error", "timeupdate", "loadedmetadata", "durationchange", "emptied", "progress", "canplay", "seeking", "seeked", "volumechange"]) {
       const attached = add.mock.calls.filter((call, index) => call[0] === type && add.mock.contexts[index] === audio);
       const removed = remove.mock.calls.filter((call, index) => call[0] === type && remove.mock.contexts[index] === audio);
       expect(attached.length).toBeGreaterThan(0);
@@ -464,5 +468,213 @@ describe("shared queues and track selection", () => {
     await act(async () => { await router.navigate("/songs"); });
     selected("jamendo:1"); expectIntent(true); expect(view.container.querySelector("audio")).toBe(audio);
     click("Play two"); selected("local:1"); expect(audio.getAttribute("src")).toBe("/two.mp3");
+  });
+});
+
+describe("shared seek and volume", () => {
+  function controls() {
+    const hook = renderHook(useMusicPlayer, { wrapper: ({ children }) => <MusicContextProvider>{children}</MusicContextProvider> });
+    return { ...hook, audio: hook.result.current.audioRef.current };
+  }
+
+  it.each([[-20, 0], [900, 180], [Number.NaN, 0], [Number.POSITIVE_INFINITY, 0]])("bounds seek input %s to %s without autoplay", (input, expected) => {
+    const { result, audio } = controls();
+    act(() => result.current.seek(input));
+    expect(audio.currentTime).toBe(expected);
+    expect(result.current.progress).toBe(0);
+    fireEvent.seeked(audio);
+    expect(result.current.progress).toBe(expected);
+    expect(audio.play).not.toHaveBeenCalled();
+    expect(result.current.isPlaying).toBe(false);
+  });
+
+  it("clamps to partial/disjoint seekable ranges rather than unavailable gaps", () => {
+    const { result, audio } = controls();
+    state(audio).ranges = [[10, 40], [60, 150]];
+    for (const [input, expected] of [[0, 10], [48, 40], [52, 60], [900, 150]]) {
+      act(() => result.current.seek(input));
+      expect(audio.currentTime).toBe(expected);
+    }
+  });
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 0, -1])("disables seeking for unusable duration %s", duration => {
+    vi.spyOn(HTMLMediaElement.prototype, "duration", "get").mockReturnValue(duration);
+    const view = render(<MusicContextProvider><NowPlaying /><NowPlayingMini /></MusicContextProvider>);
+    expect(screen.getByRole("slider", { name: "Full player seek" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("slider", { name: "Mini player seek" }).hasAttribute("disabled")).toBe(true);
+    expect(view.container.querySelector("audio")!.play).not.toHaveBeenCalled();
+  });
+
+  it("does not queue a seek when metadata or seekable ranges are unavailable", () => {
+    const { result, audio } = controls();
+    state(audio).readyState = 0;
+    fireEvent.emptied(audio);
+    act(() => result.current.seek(70));
+    expect(result.current.canSeek).toBe(false);
+    state(audio).readyState = 4; state(audio).ranges = [];
+    fireEvent.loadedMetadata(audio);
+    act(() => result.current.seek(70));
+    expect(result.current.canSeek).toBe(false);
+    state(audio).ranges = [[0, 180]];
+    fireEvent.progress(audio);
+    expect(result.current.canSeek).toBe(true);
+    expect(audio.currentTime).toBe(0);
+    expect(result.current.progress).toBe(0);
+  });
+
+  it("ignores old seek callbacks and stale events after a track/source changes", () => {
+    const { result, audio } = controls();
+    const oldSeek = result.current.seek;
+    const oldSource = audio.src;
+    act(() => { result.current.seek(60); result.current.playQueue(remoteQueue, 1); oldSeek(90); });
+    expect(audio.currentTime).toBe(0);
+    expect(result.current.progress).toBe(0);
+    expect(result.current.selectedTrack?.id).toBe("jamendo:2");
+    state(audio).currentSrc = oldSource; audio.currentTime = 60;
+    fireEvent.seeked(audio); fireEvent.timeUpdate(audio);
+    expect(result.current.progress).toBe(0);
+    state(audio).currentSrc = audio.src; audio.currentTime = 0;
+    fireEvent.seeked(audio);
+    act(() => result.current.seek(35));
+    fireEvent.seeking(audio);
+    expect(result.current.progress).toBe(35);
+    const beforeReload = result.current.seek;
+    act(() => { result.current.retryPlayback(); beforeReload(100); });
+    expect(audio.currentTime).toBe(0);
+  });
+
+  it("handles rejected seek writes and unavailable ranges without stopping playback", () => {
+    const { result, audio } = controls();
+    act(() => result.current.togglePlay());
+    const setter = vi.spyOn(audio, "currentTime", "set").mockImplementation(() => { throw new Error("sensitive media failure"); });
+    act(() => result.current.seek(50));
+    expect(result.current.controlsError).toBe("Seeking is unavailable for this audio. Playback can continue.");
+    expect(result.current.canSeek).toBe(false);
+    expect(result.current.isPlaying).toBe(true);
+    expect(audio.paused).toBe(false);
+    setter.mockRestore();
+    vi.spyOn(audio, "seekable", "get").mockImplementation(() => { throw new Error("unsupported"); });
+    fireEvent.progress(audio);
+    expect(result.current.canSeek).toBe(false);
+  });
+
+  it("synchronizes both seek/volume controls from the shared element", () => {
+    const view = render(<MusicContextProvider><NowPlaying /><NowPlayingMini /></MusicContextProvider>);
+    const audio = view.container.querySelector("audio")!;
+    const fullSeek = screen.getByRole("slider", { name: "Full player seek" }) as HTMLInputElement;
+    const miniSeek = screen.getByRole("slider", { name: "Mini player seek" }) as HTMLInputElement;
+    fireEvent.change(fullSeek, { target: { value: "44" } });
+    expect(audio.currentTime).toBe(44);
+    expect(miniSeek.value).toBe("0");
+    fireEvent.seeked(audio);
+    expect(fullSeek.value).toBe("44"); expect(miniSeek.value).toBe("44");
+    fireEvent.change(screen.getByRole("slider", { name: "Mini player volume" }), { target: { value: "0.4" } });
+    expect(audio.volume).toBe(0.4);
+    expect((screen.getByRole("slider", { name: "Full player volume" }) as HTMLInputElement).value).toBe("0.4");
+    fireEvent.click(screen.getByRole("button", { name: "Full player mute" }));
+    expect(audio.muted).toBe(true);
+    expect((screen.getByRole("slider", { name: "Mini player volume" }) as HTMLInputElement).value).toBe("0");
+    fireEvent.click(screen.getByRole("button", { name: "Mini player unmute" }));
+    expect(audio.muted).toBe(false); expect(audio.volume).toBe(0.4);
+    expect(view.container.querySelectorAll("audio")).toHaveLength(1);
+  });
+
+  it.each([[-1, 0], [2, 1], [0.25, 0.25], [Number.NaN, 1], [Number.POSITIVE_INFINITY, 1]])("clamps volume %s to %s without playing", (input, expected) => {
+    const { result, audio } = controls();
+    act(() => result.current.setVolume(input));
+    expect(audio.volume).toBe(expected); expect(result.current.volume).toBe(expected);
+    expect(audio.play).not.toHaveBeenCalled();
+  });
+
+  it("restores the previous nonzero volume after mute or a zero slider value", () => {
+    const { result, audio } = controls();
+    act(() => result.current.setVolume(0.35));
+    act(() => result.current.toggleMute());
+    expect(result.current.isMuted).toBe(true);
+    act(() => result.current.toggleMute());
+    expect(audio.volume).toBe(0.35); expect(result.current.isMuted).toBe(false);
+    act(() => result.current.setVolume(0));
+    act(() => result.current.toggleMute());
+    expect(audio.volume).toBe(0.35); expect(result.current.isMuted).toBe(false);
+    act(() => result.current.toggleMute());
+    act(() => result.current.setVolume(0.7));
+    expect(audio.muted).toBe(false); expect(result.current.volume).toBe(0.7);
+  });
+
+  it("follows external volumechange and safely reports unsupported property writes", () => {
+    const { result, audio } = controls();
+    audio.volume = 0.6; fireEvent.volumeChange(audio);
+    expect(result.current.volume).toBe(0.6);
+    audio.muted = true; fireEvent.volumeChange(audio);
+    expect(result.current.isMuted).toBe(true);
+    const setter = vi.spyOn(audio, "volume", "set").mockImplementation(() => {});
+    act(() => result.current.setVolume(0.2));
+    expect(result.current.volume).toBe(0.6);
+    expect(result.current.controlsError).toContain("device volume controls");
+    setter.mockImplementation(() => { throw new Error("sensitive volume failure"); });
+    act(() => { audio.muted = true; });
+    act(() => result.current.toggleMute());
+    expect(result.current.controlsError).toBe("Your browser cannot change audio volume here. Use your device volume controls.");
+    expect(result.current.isPlaying).toBe(false);
+    setter.mockRestore();
+  });
+
+  it("preserves seek/volume and the audio element through route changes and advances once", () => {
+    const view = render(<MusicContextProvider><Controls /><MemoryRouter>
+      <Link to="/">Full player</Link><Link to="/mini">Mini player</Link>
+      <Routes><Route path="/" element={<NowPlaying />} /><Route path="/mini" element={<NowPlayingMini />} /></Routes>
+    </MemoryRouter></MusicContextProvider>);
+    const audio = view.container.querySelector("audio")!;
+    toggle();
+    fireEvent.change(screen.getByRole("slider", { name: "Full player seek" }), { target: { value: "60" } });
+    fireEvent.seeked(audio);
+    fireEvent.change(screen.getByRole("slider", { name: "Full player volume" }), { target: { value: "0.3" } });
+    fireEvent.click(screen.getByRole("link", { name: "Mini player" }));
+    expect(view.container.querySelector("audio")).toBe(audio);
+    expect((screen.getByRole("slider", { name: "Mini player seek" }) as HTMLInputElement).value).toBe("60");
+    expect((screen.getByRole("slider", { name: "Mini player volume" }) as HTMLInputElement).value).toBe("0.3");
+    expectIntent(true);
+    ended(audio); expectIndex(1); expect(audio.play).toHaveBeenCalledTimes(2);
+    expect(audio.currentTime).toBe(0); expect(audio.volume).toBe(0.3);
+    fireEvent.click(screen.getByRole("link", { name: "Full player" }));
+    expectIntent(true);
+    expect((screen.getByRole("slider", { name: "Full player seek" }) as HTMLInputElement).value).toBe("0");
+  });
+
+  it("rearms natural completion when seeking back from a completed final track", () => {
+    const { result, audio } = controls();
+    act(() => result.current.playTrack(remoteQueue[0]));
+    ended(audio); expect(result.current.isPlaying).toBe(false);
+    act(() => result.current.seek(20));
+    state(audio).ended = false; fireEvent.seeked(audio);
+    act(() => result.current.togglePlay());
+    expect(result.current.isPlaying).toBe(true);
+    ended(audio); expect(result.current.isPlaying).toBe(false);
+    expect(audio.play).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores retained control callbacks after provider unmount", () => {
+    const { result, unmount, audio } = controls();
+    const old = result.current;
+    unmount();
+    expect(() => { old.seek(50); old.setVolume(0.2); old.toggleMute(); }).not.toThrow();
+    expect(audio.currentTime).toBe(0); expect(audio.volume).toBe(1);
+    expect(audio.play).not.toHaveBeenCalled();
+  });
+
+  it("allows unmuting when volume writes are restricted but mute is supported", () => {
+    const { result, audio } = controls();
+    act(() => { result.current.setVolume(0.4); result.current.toggleMute(); });
+    const setter = vi.spyOn(audio, "volume", "set").mockImplementation(() => { throw new Error("restricted volume"); });
+    act(() => result.current.toggleMute());
+    expect(audio.muted).toBe(false); expect(result.current.isMuted).toBe(false);
+    expect(result.current.volume).toBe(0.4);
+    expect(result.current.controlsError).toContain("device volume controls");
+    act(() => result.current.toggleMute());
+    act(() => result.current.setVolume(0.5));
+    expect(audio.muted).toBe(false); expect(result.current.isMuted).toBe(false);
+    expect(result.current.volume).toBe(0.4);
+    expect(audio.play).not.toHaveBeenCalled();
+    setter.mockRestore();
   });
 });

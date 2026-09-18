@@ -1,6 +1,7 @@
 import { useMusicPlayer } from "@/context/music-player-context";
 import { headphones } from "@/assets/images";
 import { PlaybackFeedback, TrackAttribution } from "./PlaybackFeedback";
+import { SeekControl, VolumeControls } from "./MediaControls";
 import { useEffect, useState } from "react";
 import { CiPause1, CiPlay1 } from "react-icons/ci";
 import { IoPlayBackOutline, IoPlayForwardOutline } from "react-icons/io5";
@@ -30,8 +31,6 @@ export function NowPlaying() {
   
 
 
-  const progress = duration ? Math.min(100, (currentTime / duration) * 100) : 0;
-
   if (!track) return <div className="p-6 rounded-2xl text-white bg-neutral-900">
     <h3 className="text-xl font-semibold mb-4">Now Playing</h3>
     <p>Choose a track from Songs or search.</p><PlaybackFeedback />
@@ -51,12 +50,7 @@ export function NowPlaying() {
       <p className="text-gray-400 text-sm mb-4">{track.artist}</p>
       <TrackAttribution track={track} />
 
-      <div className="h-2 bg-gray-600 rounded-full mb-1">
-        <div
-          className="bg-emerald-500 h-full rounded-full"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
+      <SeekControl label="Full player" />
 
       <div className="flex justify-between text-xs opacity-80 mb-6">
         <span>{formatTime(currentTime)}</span>
@@ -80,6 +74,7 @@ export function NowPlaying() {
           <IoPlayForwardOutline />
         </button>
       </div>
+      <div className="mt-3"><VolumeControls label="Full player" /></div>
       <PlaybackFeedback />
     </div>
   );
