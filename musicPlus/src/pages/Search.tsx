@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSearch } from "@/context/SearchContext";
+import { useMusicPlayer } from "@/context/music-player-context";
+import { adaptJamendoTrack } from "@/lib/track-adapters";
+import { TrackAttribution } from "@/components/Home/PlaybackFeedback";
 
 export default function Search() {
+  const { playQueue, selectedTrack, isPlaying, isLoading: playbackLoading, togglePlay } = useMusicPlayer();
   const { results, query, isLoading, error, searchTracks, cancelSearch } = useSearch();
   const [retry, setRetry] = useState(0);
   const [searchParams] = useSearchParams();
@@ -15,6 +19,7 @@ export default function Search() {
   const matchesQuery = query === urlQuery;
   const visibleResults = matchesQuery && urlQuery && !isLoading && !error ? results : [];
   const loading = Boolean(urlQuery) && (!matchesQuery || isLoading);
+  const playableResults = visibleResults.map(adaptJamendoTrack).filter(track => track !== null);
 
   return (
     <section className="text-white">
@@ -53,9 +58,13 @@ export default function Search() {
       )}
 
       <div className="grid gap-3">
-        {visibleResults.map((track) => (
+        {visibleResults.map((track) => {
+          const playable = adaptJamendoTrack(track);
+          const active = playable?.id === selectedTrack?.id;
+          return (
           <article
             key={track.id}
+            aria-current={active ? "true" : undefined}
             className="flex items-center gap-4 rounded-xl bg-neutral-900 p-4"
           >
             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-neutral-800">
@@ -73,12 +82,25 @@ export default function Search() {
                 {track.artist_name}
                 {track.album_name ? ` · ${track.album_name}` : ""}
               </p>
+              {playable && <TrackAttribution track={playable} />}
+              {!playable && <p className="text-xs text-neutral-400">Audio unavailable</p>}
             </div>
             <span className="text-sm tabular-nums text-neutral-400">
               {formatDuration(track.duration)}
             </span>
+            <button type="button" disabled={!playable}
+              aria-label={`${active && (isPlaying || playbackLoading) ? "Pause" : "Play"} ${track.name}`}
+              aria-pressed={active && isPlaying}
+              onClick={() => {
+                if (!playable) return;
+                if (active && (isPlaying || playbackLoading)) togglePlay();
+                else playQueue(playableResults, playableResults.findIndex(item => item.id === playable.id));
+              }}
+              className="rounded-full bg-emerald-600 px-3 py-2 text-sm shrink-0 disabled:bg-neutral-700 disabled:opacity-60">
+              {!playable ? "Unavailable" : active && playbackLoading ? "Loading…" : active && isPlaying ? "Pause" : "Play"}
+            </button>
           </article>
-        ))}
+        ); })}
       </div>
     </section>
   );

@@ -6,13 +6,23 @@ MusicPlus is a full-stack music discovery and player project. The React client c
 
 - Responsive desktop and mobile application shell
 - Clerk sign-up, email verification, sign-in, and password reset
-- Local audio playback with play, pause, previous, next, and progress display
+- Shared local/Jamendo playback with track selection, next/previous, and progress display
 - Last.fm global top artists, tracks, tags, and artist albums
 - URL-driven Jamendo catalog search with loading, empty, and error states
 - Global discovery charts shown after sign-in
 - Express health endpoint with optional MongoDB connectivity
 
-Demo mix cards and the Songs catalog are display-only. The demo-playlist section is not listening history. Search results provide catalog metadata; selecting or playing them is not implemented. Playlists, favorites, listening history, and queue playback remain future work.
+Demo mix cards are display-only. The demo-playlist section is not listening history. Songs and playable Jamendo search results start their own ordered playback queues. Last.fm discovery remains metadata-only. Playlists, favorites, listening history, and queue editing remain future work.
+
+## Playback behavior (Phase 2)
+
+One provider above the routes owns one audio element, the selected track, an immutable queue snapshot, media state, progress, loading, and fixed public errors. Local and Jamendo adapters use `local:` and `jamendo:` IDs; Last.fm records are never adapted to audio. Supplied Jamendo attribution and Creative Commons license links remain available in search and player views.
+
+Only the page-load default stays paused: page load never starts audio. Explicit Play starts the selected track, including a track selected with Next/Previous while paused. Selecting a local row starts the local catalog at that row. Selecting a search result starts the current playable results in their displayed order; missing or unsafe stream URLs are labelled unavailable and excluded from that queue. Jamendo playback uses the documented `audio` stream, never `audiodownload`: [official tracks contract](https://developer.jamendo.com/v3.0/tracks).
+
+Manual Next wraps from the last track to the first. Previous restarts the current track after two seconds; otherwise it moves backward and wraps at the beginning. These controls preserve playing/paused intent. Natural completion advances exactly once within the queue and stops on the final track. There is no repeat mode. Play can restart a completed final track.
+
+`playTrack(track)` starts a singleton queue. `playQueue(tracks, startIndex)` copies its input before selection. Empty input clears playback; an invalid index or unavailable audio is rejected safely without replacing the current queue. Search changes, clearing, and navigation do not alter an already selected queue. Retry reloads the selected source from the beginning. Actual playing state comes from media events; pending or rejected promises are not reported as successful playback.
 
 ## Project structure
 
@@ -67,14 +77,14 @@ npm run lint
 npm run build
 ```
 
-Run the existing mocked Phase 1B regression suite and TypeScript checks from the repository root:
+Run the existing mocked regression suite and TypeScript checks from the repository root:
 
 ```bash
 npm --prefix musicPlus test
 npm --prefix musicPlus run typecheck
 ```
 
-The existing 65 tests cover provider validation, search clearing/races/retry/history, and Clerk authentication/session requirements using mocks. They do not verify live authentication or use a production database. Tests disable Vite environment-file loading. No real .env files are required for lint, TypeScript, or an env-free production build. Root lint/build commands cover the frontend only; the server has no automated test suite and its test script is still a failing placeholder. Browser end-to-end and playback regression tests remain future work.
+The regression tests cover provider validation, URL search clearing/races/retry/history, Clerk authentication/session requirements, playback lifecycle, adapters, source IDs, queue selection/boundaries, media errors, and route/search continuity using mocks. They do not verify live authentication or use a production database. Tests disable Vite environment-file loading. No real .env files are required for lint, TypeScript, or an env-free production build. Root lint/build commands cover the frontend only; the server has no automated test suite and its test script is still a failing placeholder. Browser end-to-end automation remains future work.
 
 ## Authentication limitations (Phase 1B)
 
@@ -105,10 +115,9 @@ Never commit real credentials. Both local `.env` files are ignored by Git.
 
 ## Portfolio roadmap
 
-1. Connect Jamendo search results to the global player.
-2. Add seek, volume, shuffle, repeat, and queue controls.
-3. Build authenticated MongoDB playlists, favorites, and listening history.
-4. Extend existing component tests with playback, API integration, and browser end-to-end coverage.
-5. Deploy the client and API and add screenshots, architecture notes, and a demo video.
+1. Add seek, volume, shuffle, repeat, and queue editing controls.
+2. Build authenticated MongoDB playlists, favorites, and listening history.
+3. Extend existing component tests with API integration and browser end-to-end coverage.
+4. Deploy the client and API and add screenshots, architecture notes, and a demo video.
 
 Only deploy audio that you have permission to redistribute. Last.fm should be treated as a metadata source; playback must follow the selected provider's licensing terms.

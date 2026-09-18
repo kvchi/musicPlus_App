@@ -1,45 +1,17 @@
 import { useMusicPlayer } from "@/context/music-player-context";
-import { playlist } from "@/data/MusicData";
+import { headphones } from "@/assets/images";
+import { PlaybackFeedback, TrackAttribution } from "./PlaybackFeedback";
 import { useEffect, useState } from "react";
 import { CiPause1, CiPlay1 } from "react-icons/ci";
 import { IoPlayBackOutline, IoPlayForwardOutline } from "react-icons/io5";
 
 export function NowPlaying() {
-  const { currentIndex, isPlaying, togglePlay, handleNext, handlePrev, audioRef } =
+  const { selectedTrack: track, isPlaying, isLoading, togglePlay, handleNext, handlePrev, progress: currentTime, duration } =
     useMusicPlayer();
-
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [bgGradient, setBgGradient] = useState(
     "linear-gradient(135deg, #1a1a1a, #2c2c2c)"
   );
 
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const updateTime = () => setCurrentTime(audio.currentTime);
-    const setAudioDuration = () => {
-      setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
-      updateTime();
-    };
-    const resetProgress = () => {
-      setCurrentTime(0);
-      setDuration(0);
-    };
-    audio.addEventListener("timeupdate", updateTime);
-    audio.addEventListener("loadedmetadata", setAudioDuration);
-    audio.addEventListener("emptied", resetProgress);
-    // This view can mount after metadata/time events fired on another route.
-    setAudioDuration();
-
-    return () => {
-      audio.removeEventListener("timeupdate", updateTime);
-      audio.removeEventListener("loadedmetadata", setAudioDuration);
-      audio.removeEventListener("emptied", resetProgress);
-    };
-  }, [currentIndex, audioRef]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -58,20 +30,26 @@ export function NowPlaying() {
   
 
 
-  const progress = duration ? (currentTime / duration) * 100 : 0;
+  const progress = duration ? Math.min(100, (currentTime / duration) * 100) : 0;
+
+  if (!track) return <div className="p-6 rounded-2xl text-white bg-neutral-900">
+    <h3 className="text-xl font-semibold mb-4">Now Playing</h3>
+    <p>Choose a track from Songs or search.</p><PlaybackFeedback />
+  </div>;
 
   return (
     <div className="p-6 rounded-2xl text-white" style={{ background: bgGradient } as React.CSSProperties}>
       <h3 className="text-xl font-semibold mb-4">Now Playing</h3>
 
       <img
-        src={playlist[currentIndex].cover}
-        alt={playlist[currentIndex].title}
+        src={track.artworkUrl || headphones}
+        alt={track.title}
         className="rounded-xl mb-4"
       />
 
-      <h4 className="font-semibold">{playlist[currentIndex].title}</h4>
-      <p className="text-gray-400 text-sm mb-4">{playlist[currentIndex].artist}</p>
+      <h4 className="font-semibold">{track.title}</h4>
+      <p className="text-gray-400 text-sm mb-4">{track.artist}</p>
+      <TrackAttribution track={track} />
 
       <div className="h-2 bg-gray-600 rounded-full mb-1">
         <div
@@ -86,20 +64,23 @@ export function NowPlaying() {
       </div>
 
       <div className="flex justify-center gap-6">
-        <button onClick={handlePrev} title="back" className="cursor-pointer">
+        <button type="button" onClick={handlePrev} title="back" aria-label="Previous track" className="cursor-pointer">
           <IoPlayBackOutline />
         </button>
         <button
           onClick={togglePlay}
+          type="button"
+          aria-label={isLoading ? "Cancel loading" : isPlaying ? "Pause playback" : "Play playback"}
           title="play/pause"
           className="bg-emerald-600 p-3 rounded-full cursor-pointer hover:bg-white hover:text-emerald-500"
         >
-          {isPlaying ? <CiPause1 /> : <CiPlay1 />}
+          {isPlaying || isLoading ? <CiPause1 /> : <CiPlay1 />}
         </button>
-        <button onClick={handleNext} title="forward" className="cursor-pointer">
+        <button type="button" onClick={handleNext} title="forward" aria-label="Next track" className="cursor-pointer">
           <IoPlayForwardOutline />
         </button>
       </div>
+      <PlaybackFeedback />
     </div>
   );
 }

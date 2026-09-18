@@ -5,7 +5,10 @@ function isTrack(value: unknown): value is JamendoTrack {
     typeof value.artist_name === "string" && typeof value.album_name === "string" &&
     typeof value.duration === "number" && Number.isFinite(value.duration) && value.duration >= 0 &&
     (value.image === undefined || typeof value.image === "string") &&
-    (value.audio === undefined || typeof value.audio === "string");
+    (value.audio === undefined || typeof value.audio === "string") &&
+    (value.shareurl === undefined || typeof value.shareurl === "string") &&
+    (value.license_ccurl === undefined || typeof value.license_ccurl === "string") &&
+    (value.audiodownload_allowed === undefined || typeof value.audiodownload_allowed === "boolean");
 }
 export function parseJamendoResponse(value: unknown): JamendoTrack[] {
   if (!isRecord(value) || !isRecord(value.headers) ||
@@ -16,6 +19,8 @@ export function parseJamendoResponse(value: unknown): JamendoTrack[] {
     id: track.id, name: track.name, artist_name: track.artist_name,
     album_name: track.album_name, duration: track.duration,
     image: safeAssetUrl(track.image), audio: safeAssetUrl(track.audio),
+    shareurl: safeAssetUrl(track.shareurl), license_ccurl: safeAssetUrl(track.license_ccurl),
+    audiodownload_allowed: track.audiodownload_allowed,
   }));
 }
 export async function fetchJamendoTracks(query: string, signal?: AbortSignal) {

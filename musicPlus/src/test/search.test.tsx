@@ -7,6 +7,7 @@ import { fetchJamendoTracks } from "@/api/jamendo";
 import { ProviderError } from "@/api/provider-response";
 import Header from "@/components/Header";
 import { SearchProvider } from "@/context/SearchProvider";
+import { MusicContextProvider } from "@/context/MusicContext";
 import { useSearch } from "@/context/SearchContext";
 import Search from "@/pages/Search";
 import type { JamendoTrack } from "@/types/types";
@@ -24,11 +25,14 @@ function deferred<T>() {
 const wrapper = ({ children }: { children: ReactNode }) => <SearchProvider>{children}</SearchProvider>;
 function page(initial = "/search?q=first", strict = false) {
   const router = createMemoryRouter([{ element: <><Header /><Outlet /></>, children: [{ path: "/search", element: <Search /> }, { path: "/other", element: <p>Other page</p> }] }], { initialEntries: [initial] });
-  const tree = <SearchProvider><RouterProvider router={router} /></SearchProvider>;
+  const tree = <MusicContextProvider><SearchProvider><RouterProvider router={router} /></SearchProvider></MusicContextProvider>;
   const view = render(strict ? <StrictMode>{tree}</StrictMode> : tree);
   return { router, ...view };
 }
-beforeEach(() => api.mockReset());
+beforeEach(() => {
+  api.mockReset();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+});
 
 describe("race-safe search state", () => {
   it("ignores superseded responses and keeps the newer request loading", async () => {

@@ -7,6 +7,9 @@ export interface JamendoTrack {
   duration: number;
   image?: string;
   audio?: string;
+  shareurl?: string;
+  license_ccurl?: string;
+  audiodownload_allowed?: boolean;
 }
 
 export type Track = JamendoTrack;
