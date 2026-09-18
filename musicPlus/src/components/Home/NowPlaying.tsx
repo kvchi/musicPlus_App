@@ -20,22 +20,26 @@ export function NowPlaying() {
     if (!audio) return;
 
     const updateTime = () => setCurrentTime(audio.currentTime);
-    const setAudioDuration = () => setDuration(audio.duration);
-    const handleEnded = () => {
-      handleNext();
-      setTimeout(() => audio.play(), 0);
+    const setAudioDuration = () => {
+      setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+      updateTime();
     };
-
+    const resetProgress = () => {
+      setCurrentTime(0);
+      setDuration(0);
+    };
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", setAudioDuration);
-    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("emptied", resetProgress);
+    // This view can mount after metadata/time events fired on another route.
+    setAudioDuration();
 
     return () => {
       audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("loadedmetadata", setAudioDuration);
-      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("emptied", resetProgress);
     };
-  }, [currentIndex, handleNext, audioRef]);
+  }, [currentIndex, audioRef]);
 
   useEffect(() => {
     if (!isPlaying) return;
