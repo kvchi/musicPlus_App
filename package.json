@@ -1,8 +1,12 @@
 {
-  "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@mui/icons-material": "^7.3.4",
-    "@mui/material": "^7.3.4"
+  "name": "musicplus",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:client": "npm --prefix musicPlus run dev",
+    "dev:server": "npm --prefix server run dev",
+    "build": "npm --prefix musicPlus run build",
+    "lint": "npm --prefix musicPlus run lint",
+    "start:server": "npm --prefix server start"
   }
 }
