@@ -1,4 +1,3 @@
-import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { fetchArtistTopAlbums } from "@/api/lastFM";
 import MusicCard from "./MusicCard";
@@ -10,7 +9,6 @@ interface TopAlbumsProps {
 }
 
 export default function TopAlbums({artist} : TopAlbumsProps) {
-  const navigate = useNavigate();
   const [albums, setAlbums] = useState<LastFmAlbum[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,16 +63,6 @@ export default function TopAlbums({artist} : TopAlbumsProps) {
           />
         ))}
       </div>
-
-
-      <div className="text-right my-5">
-        <button
-          onClick={() => navigate("/topAlbums")}
-          className="text-purple-600 underline hover:font-bold"
-        >
-          See More
-        </button>
-      </div>
-</section>
+    </section>
   );
 }

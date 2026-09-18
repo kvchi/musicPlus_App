@@ -12,8 +12,8 @@ export default function Home() {
     <>
       <div className="bg-black min-h-screen">
         <div className="flex-1">
-          <h1 className="text-4xl text-emerald-600 font-bold py-4 px- text-center">
-            Welcome to music plus
+          <h1 className="text-4xl text-emerald-500 font-bold py-4 text-center">
+            Welcome to MusicPlus
           </h1>
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* LEFT SIDE */}

@@ -1,4 +1,5 @@
 import { woman } from "../../assets/images";
+import { Link } from "react-router-dom";
 
 
 export default function HeroCard() {
@@ -9,10 +10,13 @@ export default function HeroCard() {
         <div>
           <h2 className="text-3xl font-bold mt-3">Enjoy listening music with headphone</h2>
         </div>
-        <p className="mt-6 ">Lorem ipsum dolor sit amet consectetur adipisicing elit. Quis tempora quisquam ad modi dolor laudantium magnam cumque nihil mollitia rem.</p>
-        <button className="mt-6 bg-white text-black px-6 py-2 rounded-full font-semibold">
-          Subscribe Now
-        </button>
+        <p className="mt-6 ">Discover independent artists, explore global charts, and keep your music close wherever you listen.</p>
+        <Link
+          to="/search"
+          className="inline-block mt-6 bg-white text-black px-6 py-2 rounded-full font-semibold"
+        >
+          Explore music
+        </Link>
       </div>
 
       <img

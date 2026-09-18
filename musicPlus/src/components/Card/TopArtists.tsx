@@ -1,4 +1,3 @@
-import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { fetchTopArtist } from "@/api/lastFM";
 import MusicCard from "./MusicCard";
@@ -6,7 +5,6 @@ import type { LastFmArtist } from "@/types/types";
 import { providerMessage } from "@/api/provider-response";
 
 export default function TopArtists() {
-  const navigate = useNavigate()
   const [artists, setArtists] = useState<LastFmArtist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,15 +55,7 @@ export default function TopArtists() {
           />
         ))}
       </div>
-
-      <div className="text-right my-5">
-        <button
-        onClick={() => navigate("/topArtists")}
-        className="text-purple-600 underline hover:font-bold">
-            See More
-        </button>
-      </div>
-</section>
+    </section>
   );
 }
 
