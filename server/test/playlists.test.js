@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createApp } from "../app.js";
+import { clerkAuthorizedParties, createApp } from "../app.js";
 
 function fakeModel() {
   const rows = [];
@@ -177,5 +177,43 @@ test("Clerk setup fails closed when a required server key is missing", () => {
     else process.env.CLERK_PUBLISHABLE_KEY = previousPublic;
     if (previousSecret === undefined) delete process.env.CLERK_SECRET_KEY;
     else process.env.CLERK_SECRET_KEY = previousSecret;
+  }
+});
+
+test("Clerk origin allowlist accepts exact deployment origins and rejects unsafe values", () => {
+  assert.deepEqual(clerkAuthorizedParties("https://music.example.invalid, https://music.example.invalid"),
+    ["https://music.example.invalid"]);
+  for (const value of ["*", "https://music.example.invalid/path", "https://music.example.invalid/",
+    "http://music.example.invalid", "https://user:pass@music.example.invalid", "https://music.example.invalid,"]) {
+    assert.throws(() => clerkAuthorizedParties(value), /exact HTTPS origins/);
+  }
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    assert.throws(() => clerkAuthorizedParties(""), /required in production/);
+    assert.throws(() => clerkAuthorizedParties("http://localhost:5173"), /exact HTTPS origins/);
+  }
+  finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+  }
+});
+
+test("Express passes the configured origin allowlist to Clerk middleware", () => {
+  const keys = ["CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY", "CLERK_AUTHORIZED_PARTIES"];
+  const previous = keys.map(key => process.env[key]);
+  process.env.CLERK_PUBLISHABLE_KEY = "test-publishable";
+  process.env.CLERK_SECRET_KEY = "test-secret";
+  process.env.CLERK_AUTHORIZED_PARTIES = "https://music.example.invalid";
+  let options;
+  try {
+    createApp({ clerkAuth: { clerkMiddleware: value => { options = value; return (_req, _res, next) => next(); },
+      getAuth: () => ({ isAuthenticated: false }) } });
+    assert.deepEqual(options.authorizedParties, ["https://music.example.invalid"]);
+  } finally {
+    keys.forEach((key, index) => {
+      if (previous[index] === undefined) delete process.env[key];
+      else process.env[key] = previous[index];
+    });
   }
 });

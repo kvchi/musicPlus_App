@@ -6,13 +6,31 @@ import { fileURLToPath } from "node:url";
 import connectToDatabase from "./config/db.js";
 import { playlistsRouter } from "./routes/playlists.js";
 
+const localClerkOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
+export function clerkAuthorizedParties(value = process.env.CLERK_AUTHORIZED_PARTIES) {
+  if (!value) {
+    if (process.env.NODE_ENV === "production") throw new Error("CLERK_AUTHORIZED_PARTIES is required in production.");
+    return localClerkOrigins;
+  }
+  const origins = value.split(",").map(origin => origin.trim());
+  if (origins.length > 10 || origins.some(origin => {
+    try {
+      const url = new URL(origin);
+      return url.origin !== origin || url.username || url.password || url.search || url.hash ||
+        (url.protocol !== "https:" && (process.env.NODE_ENV === "production" ||
+          !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))));
+    } catch { return true; }
+  })) throw new Error("CLERK_AUTHORIZED_PARTIES must contain exact HTTPS origins or local development origins.");
+  return [...new Set(origins)];
+}
+
 export function createApp({ authMiddleware, ownerFromRequest, isDatabaseReady, model, clerkAuth } = {}) {
   const app = express();
   app.get("/health", (_request, response) => response.status(200).json({ status: "ok" }));
   const configured = Boolean(clerkAuth && process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY);
   if (clerkAuth && !configured) throw new Error("Clerk server keys are not configured.");
   const auth = authMiddleware ?? (configured ? clerkAuth.clerkMiddleware({
-    authorizedParties: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    authorizedParties: clerkAuthorizedParties(),
   }) : (_request, _response, next) => next());
   app.use("/api/playlists", auth, express.json({ limit: "8kb" }), playlistsRouter({ model, isDatabaseReady,
     ownerFromRequest: ownerFromRequest ?? (request => {

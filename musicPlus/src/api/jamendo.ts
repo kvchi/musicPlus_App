@@ -1,5 +1,11 @@
 import type { JamendoTrack } from "@/types/types";
 import { isRecord, ProviderError, providerUrl, requestJson, safeAssetUrl } from "./provider-response";
+function providerLink(value: string | undefined, host: string): string | undefined {
+  const safe = safeAssetUrl(value);
+  if (!safe) return undefined;
+  const url = new URL(safe);
+  return url.protocol === "https:" && (url.hostname === host || url.hostname.endsWith(`.${host}`)) ? safe : undefined;
+}
 function isTrack(value: unknown): value is JamendoTrack {
   return isRecord(value) && typeof value.id === "string" && typeof value.name === "string" &&
     typeof value.artist_name === "string" && typeof value.album_name === "string" &&
@@ -19,7 +25,8 @@ export function parseJamendoResponse(value: unknown): JamendoTrack[] {
     id: track.id, name: track.name, artist_name: track.artist_name,
     album_name: track.album_name, duration: track.duration,
     image: safeAssetUrl(track.image), audio: safeAssetUrl(track.audio),
-    shareurl: safeAssetUrl(track.shareurl), license_ccurl: safeAssetUrl(track.license_ccurl),
+    shareurl: providerLink(track.shareurl, "jamendo.com"),
+    license_ccurl: providerLink(track.license_ccurl, "creativecommons.org"),
     audiodownload_allowed: track.audiodownload_allowed,
   }));
 }

@@ -23,7 +23,7 @@ The browser sends the current Clerk session token in `Authorization: Bearer` to 
 
 The authentication integration follows Clerk's [Express middleware and `getAuth()` reference](https://clerk.com/docs/reference/express/clerk-middleware) and [authenticated request guidance](https://clerk.com/docs/guides/development/making-requests). Server keys are loaded before the Express SDK is imported at runtime.
 
-Set the variable names in `server/.env.example` on the server side only: `DATABASE_URL`, `CLERK_PUBLISHABLE_KEY`, and `CLERK_SECRET_KEY`. The browser uses the existing `VITE_CLERK_PUBLISHABLE_KEY`; no server secret belongs in a `VITE_` variable. Without a MongoDB connection, `/health` remains available while playlist requests return `503`. The playlist API is private and has no CORS wildcard. Browser and API unit tests use mocked sessions and an in-memory model; they never write a production database.
+Set the variable names in `server/.env.example` on the server side only: `DATABASE_URL`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and production `CLERK_AUTHORIZED_PARTIES`. The browser uses the existing `VITE_CLERK_PUBLISHABLE_KEY`; no server secret belongs in a `VITE_` variable. Without a MongoDB connection, `/health` remains available while playlist requests return `503`. The playlist API is private and has no CORS wildcard. Browser and API unit tests use mocked sessions and an in-memory model; they never write a production database.
 
 | Method | Route | Body | Success |
 | --- | --- | --- | --- |
@@ -138,7 +138,7 @@ npm --prefix musicPlus test
 npm --prefix musicPlus run typecheck
 ```
 
-The regression tests cover provider validation, URL search clearing/races/retry/history, Clerk authentication/session requirements, playback lifecycle, adapters, source IDs, queue selection/boundaries, media errors, and route/search continuity using mocks. They do not verify live authentication or use a production database. Tests disable Vite environment-file loading. No real .env files are required for lint, TypeScript, or an env-free production build. Root lint/build commands cover the frontend only; the server has no automated test suite and its test script is still a failing placeholder. Browser end-to-end automation remains future work.
+The frontend regression tests cover provider validation, URL search clearing/races/retry/history, Clerk authentication/session requirements, playback lifecycle, adapters, source IDs, queue selection/boundaries, media errors, and route/search continuity using mocks. The server suite covers owner-scoped playlist routes with an in-memory model. Run it with `npm --prefix server test`. These suites do not verify live authentication, real provider playback, or production MongoDB. Frontend tests disable Vite environment-file loading; root lint/build commands cover the frontend only. Browser end-to-end automation remains future work.
 
 ## Authentication limitations (Phase 1B)
 
@@ -164,8 +164,13 @@ Server variables are documented in `server/.env.example`:
 
 - `PORT`
 - `DATABASE_URL`
+- `CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `CLERK_AUTHORIZED_PARTIES` (exact frontend origins; required when `NODE_ENV=production`)
 
-Never commit real credentials. Both local `.env` files are ignored by Git.
+Every `VITE_` value used by the app is public in the browser bundle. The Clerk publishable key is designed for that. The Last.fm API key and Jamendo client ID are sent in read-only provider requests and are visible to users; neither is a provider shared secret. Use provider credentials appropriate for public read access, or put the provider requests behind a constrained server endpoint if the account or quota must remain private. Never put a Clerk secret, Last.fm shared secret, Jamendo client secret, or database URL in a `VITE_` variable. Never commit real credentials. Both local `.env` files are ignored by Git.
+
+For deployment, run Express with `NODE_ENV=production`, serve `/api/playlists` to it under the frontend's origin, configure the frontend host's SPA fallback, and set `CLERK_AUTHORIZED_PARTIES` to the deployed HTTPS frontend origin. Vite's `/api` proxy works only during local development. Configure the production Clerk instance, MongoDB connection, and provider accounts for the chosen host before running a signed-in smoke test. No production routing or host is selected in this repository.
 
 ## Portfolio roadmap
 

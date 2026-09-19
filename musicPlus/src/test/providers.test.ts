@@ -59,6 +59,16 @@ describe("provider boundaries", () => {
     expect(result[0].audio).toBeUndefined();
     expect(parseTopArtists({ artists: { artist: [{ name: "Artist", listeners: "10", image: [{ "#text": "https://example.invalid/image?token=secret" }] }] } })[0].image?.[0]["#text"]).toBe("");
   });
+  it("keeps only HTTPS Jamendo attribution and Creative Commons license links", () => {
+    const parsed = parseJamendoResponse(jamendo([{ ...song, shareurl: "https://www.jamendo.com/track/1",
+      license_ccurl: "https://creativecommons.org/licenses/by/4.0/" }]));
+    expect(parsed[0].shareurl).toBe("https://www.jamendo.com/track/1");
+    expect(parsed[0].license_ccurl).toBe("https://creativecommons.org/licenses/by/4.0/");
+    const unsafe = parseJamendoResponse(jamendo([{ ...song, shareurl: "https://example.invalid/track/1",
+      license_ccurl: "http://creativecommons.org/licenses/by/4.0/" }]));
+    expect(unsafe[0].shareurl).toBeUndefined();
+    expect(unsafe[0].license_ccurl).toBeUndefined();
+  });
   it.each([fetchJamendoTracks.bind(null, "rock"), fetchTopArtist])("checks HTTP, network and JSON failures with safe messages", async (fetchTracks) => {
     vi.mocked(fetch).mockResolvedValueOnce(response({}, false));
     await expect(fetchTracks()).rejects.toThrow(new ProviderError("http"));
