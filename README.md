@@ -20,9 +20,17 @@ One provider above the routes owns one audio element, the selected track, an imm
 
 Only the page-load default stays paused: page load never starts audio. Explicit Play starts the selected track, including a track selected with Next/Previous while paused. Selecting a local row starts the local catalog at that row. Selecting a search result starts the current playable results in their displayed order; missing or unsafe stream URLs are labelled unavailable and excluded from that queue. Jamendo playback uses the documented `audio` stream, never `audiodownload`: [official tracks contract](https://developer.jamendo.com/v3.0/tracks).
 
-Manual Next wraps from the last track to the first. Previous restarts the current track after two seconds; otherwise it moves backward and wraps at the beginning. These controls preserve playing/paused intent. Natural completion advances exactly once within the queue and stops on the final track. There is no repeat mode. Play can restart a completed final track.
+Manual Next wraps at the traversal boundary. Previous restarts the current track after two seconds; otherwise it moves backward and wraps at the beginning when shuffle is off. These controls preserve playing/paused intent. By default, natural completion advances exactly once within the queue and stops on the final track. Play can restart a completed final track.
 
 `playTrack(track)` starts a singleton queue. `playQueue(tracks, startIndex)` copies its input before selection. Empty input clears playback; an invalid index or unavailable audio is rejected safely without replacing the current queue. Search changes, clearing, and navigation do not alter an already selected queue. Retry reloads the selected source from the beginning. Actual playing state comes from media events; pending or rejected promises are not reported as successful playback.
+
+## Repeat and shuffle (Phase 3B)
+
+Both players share repeat off/all/one and shuffle on/off controls. Defaults are off, with no persistence. Toggling either mode does not change the track, timing, volume, or playing/paused intent, and does not start playback. Repeat off advances naturally and stops at the traversal end; all wraps; one replays the current track. Manual Next ignores repeat-one and wraps; Previous retains its two-second restart behavior.
+
+Shuffle leaves the original queue unchanged and builds a permutation anchored on the current track. Each forward cycle visits every queue entry once. Previous follows visited traversal history (and stays on the current track at the oldest entry); Next retraces forward history before consuming another slot. Deliberately revisiting a track with Previous is not a new shuffle slot. Toggling shuffle starts a new traversal cycle, retains past navigation, and discards forward history. Turning it off restores original queue order from the current track.
+
+Manual wrapping and repeat-all completion create a fresh shuffled cycle, avoiding an immediate repeat of the boundary track when another track exists. Queue replacement retains the modes but resets traversal and history around the explicitly selected track. Empty queues do nothing; one-track queues stop naturally with repeat off and replay with all/one. Their manual Next selects the same track because no alternative exists. Navigation history is temporary player state, not a listening-history feature. Media failures stop playback and keep the existing safe retry feedback; they do not trigger repeat.
 
 ## Seek and volume (Phase 3A)
 
@@ -123,7 +131,7 @@ Never commit real credentials. Both local `.env` files are ignored by Git.
 
 ## Portfolio roadmap
 
-1. Add shuffle, repeat, and queue editing controls.
+1. Add queue editing controls.
 2. Build authenticated MongoDB playlists, favorites, and listening history.
 3. Extend existing component tests with API integration and browser end-to-end coverage.
 4. Deploy the client and API and add screenshots, architecture notes, and a demo video.

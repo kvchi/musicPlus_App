@@ -82,7 +82,7 @@ beforeEach(() => {
 });
 
 function Controls() {
-  const { currentIndex, selectedTrack, queue, isPlaying, isLoading, error, togglePlay, handleNext, handlePrev, playQueue, playTrack } = useMusicPlayer();
+  const { currentIndex, selectedTrack, queue, isPlaying, isLoading, error, togglePlay, handleNext, handlePrev, playQueue, playTrack, repeatMode, cycleRepeatMode, isShuffled, toggleShuffle } = useMusicPlayer();
   return <>
     <output data-testid="index">{currentIndex}</output>
     <output data-testid="intent">{String(isPlaying)}</output>
@@ -90,6 +90,10 @@ function Controls() {
     <output data-testid="queue">{queue.map(track => track.id).join(",")}</output>
     <output data-testid="loading">{String(isLoading)}</output>
     <output data-testid="playback-error">{error}</output>
+    <output data-testid="repeat">{repeatMode}</output>
+    <output data-testid="shuffle">{String(isShuffled)}</output>
+    <button onClick={cycleRepeatMode}>Cycle repeat</button>
+    <button onClick={toggleShuffle}>Toggle shuffle</button>
     <button onClick={togglePlay}>Toggle playback</button>
     <button onClick={handleNext}>Test next</button>
     <button onClick={handlePrev}>Test previous</button>
@@ -676,5 +680,168 @@ describe("shared seek and volume", () => {
     expect(result.current.volume).toBe(0.4);
     expect(audio.play).not.toHaveBeenCalled();
     setter.mockRestore();
+  });
+});
+
+describe("repeat and shuffle modes", () => {
+  beforeEach(() => { vi.spyOn(Math, "random").mockReturnValue(0); });
+  const cycle = () => fireEvent.click(screen.getByRole("button", { name: "Cycle repeat" }));
+  const shuffle = () => fireEvent.click(screen.getByRole("button", { name: "Toggle shuffle" }));
+  it.each(["off", "all", "one"] as const)("applies repeat-%s only to natural completion", mode => {
+    const { audio } = player();
+    if (mode !== "off") cycle();
+    if (mode === "one") cycle();
+    next(); next(); toggle();
+    ended(audio);
+    expectIndex(mode === "all" ? 0 : 2);
+    expectIntent(mode !== "off");
+    expect(audio.play).toHaveBeenCalledTimes(mode === "off" ? 1 : 2);
+    next(); expectIndex(mode === "all" ? 1 : 0);
+  });
+  it("repeat-one retains its traversal slot and manual Next still changes tracks", () => {
+    const { audio } = player(); cycle(); cycle(); shuffle(); toggle();
+    ended(audio); ended(audio); expectIndex(0);
+    next(); expect(screen.getByTestId("selected").textContent).not.toBe("local:0");
+    audio.currentTime = 5; previous();
+    expect(audio.currentTime).toBe(0);
+    expect(audio.play).toHaveBeenCalledTimes(4);
+  });
+  it("visits each shuffled track once, stops, and manually wraps without repeating the boundary", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const { audio } = player(); shuffle(); toggle();
+    const visited = [screen.getByTestId("selected").textContent];
+    ended(audio); visited.push(screen.getByTestId("selected").textContent);
+    ended(audio); visited.push(screen.getByTestId("selected").textContent);
+    expect(new Set(visited).size).toBe(3);
+    expect(screen.getByTestId("queue").textContent).toBe("local:0,local:1,local:2");
+    ended(audio); expectIntent(false);
+    const last = screen.getByTestId("selected").textContent;
+    next(); expect(screen.getByTestId("selected").textContent).not.toBe(last);
+    expectIntent(false);
+  });
+  it("repeat-all reshuffles whole cycles without adjacent boundary duplicates", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const { audio } = player(); shuffle(); cycle(); toggle();
+    ended(audio); ended(audio);
+    const last = screen.getByTestId("selected").textContent;
+    ended(audio);
+    const cycleTracks = [screen.getByTestId("selected").textContent];
+    expect(cycleTracks[0]).not.toBe(last);
+    ended(audio); cycleTracks.push(screen.getByTestId("selected").textContent);
+    ended(audio); cycleTracks.push(screen.getByTestId("selected").textContent);
+    expect(new Set(cycleTracks).size).toBe(3); expectIntent(true);
+  });
+  it("Previous follows shuffle history and Next retraces it before advancing", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    player(); shuffle(); previous(); expectIndex(0);
+    next(); expectIndex(2); next(); expectIndex(1);
+    previous(); expectIndex(2); previous(); expectIndex(0);
+    next(); expectIndex(2); next(); expectIndex(1);
+    expectIntent(false);
+  });
+  it.each([false, true])("toggling modes preserves source, time, intent, and media operations (playing: %s)", playing => {
+    const { audio } = player(); next(); if (playing) toggle();
+    audio.currentTime = 12;
+    const playCalls = vi.mocked(audio.play).mock.calls.length;
+    const pauseCalls = vi.mocked(audio.pause).mock.calls.length;
+    const loadCalls = vi.mocked(audio.load).mock.calls.length;
+    shuffle(); cycle(); cycle(); shuffle();
+    expectIndex(1); expect(audio.currentTime).toBe(12);
+    expect(audio.getAttribute("src")).toBe("/two.mp3");
+    expect(audio.play).toHaveBeenCalledTimes(playCalls);
+    expect(audio.pause).toHaveBeenCalledTimes(pauseCalls);
+    expect(audio.load).toHaveBeenCalledTimes(loadCalls);
+    expectIntent(playing);
+  });
+  it("does not invalidate an outstanding play operation when modes change", async () => {
+    const pending = deferred();
+    vi.mocked(HTMLMediaElement.prototype.play).mockReturnValueOnce(pending.promise);
+    player(); toggle(); shuffle(); cycle();
+    expect(screen.getByTestId("loading").textContent).toBe("true");
+    await act(async () => pending.reject(new Error("synthetic failure")));
+    expectIntent(false);
+    expect(screen.getByTestId("playback-error").textContent).toContain("Unable to play");
+  });
+  it("retains modes but resets traversal and history when replacing the queue", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    player(); shuffle(); cycle(); next(); next();
+    fireEvent.click(screen.getByRole("button", { name: "Remote second" }));
+    previous(); expect(screen.getByTestId("selected").textContent).toBe("jamendo:2");
+    next(); expect(screen.getByTestId("selected").textContent).toBe("jamendo:1");
+    expect(screen.getByTestId("repeat").textContent).toBe("all");
+    expect(screen.getByTestId("shuffle").textContent).toBe("true");
+    expect(screen.getByTestId("queue").textContent).toBe("jamendo:1,jamendo:2");
+  });
+  it.each(["off", "all", "one"] as const)("handles a singleton and empty queue in repeat-%s", mode => {
+    const { audio } = player(); shuffle();
+    if (mode !== "off") cycle(); if (mode === "one") cycle();
+    fireEvent.click(screen.getByRole("button", { name: "Single remote" }));
+    ended(audio); expectIntent(mode !== "off");
+    next(); expect(screen.getByTestId("selected").textContent).toBe("jamendo:2");
+    fireEvent.click(screen.getByRole("button", { name: "Empty queue" }));
+    next(); previous(); shuffle(); cycle(); ended(audio);
+    expect(screen.getByTestId("selected").textContent).toBe("none"); expectIntent(false);
+  });
+  it("synchronizes labelled, pressed-state controls in both player views", () => {
+    render(<MusicContextProvider><NowPlaying /><NowPlayingMini /></MusicContextProvider>);
+    for (const view of ["Full player", "Mini player"]) {
+      for (const mode of ["repeat", "shuffle"]) {
+        const button = screen.getByRole("button", { name: `${view} ${mode}: off` });
+        expect(button.getAttribute("aria-pressed")).toBe("false");
+        expect(button.className).toContain("text-neutral-200");
+        expect(button.className).toContain("focus-visible:outline-2");
+        button.focus();
+        expect(document.activeElement).toBe(button);
+      }
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Full player repeat: off" }));
+    expect(screen.getByRole("button", { name: "Mini player repeat: all" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Mini player repeat: all" }));
+    expect(screen.getByRole("button", { name: "Full player repeat: one" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Mini player shuffle: off" }));
+    expect(screen.getByRole("button", { name: "Full player shuffle: on" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Mini player shuffle: on" }).className).toContain("aria-pressed:bg-emerald-950");
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+  });
+  it("keeps the selected Songs action compact on mobile with a full accessible label", () => {
+    render(<MusicContextProvider><Songs /></MusicContextProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Play one" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pause one" }));
+    const selected = screen.getByRole("button", { name: "Play one" });
+    expect(selected.querySelector(".sm\\:hidden")?.textContent).toBe("Play");
+    expect(selected.querySelector(".sm\\:inline")?.textContent).toContain("selected");
+  });
+  it("preserves modes and playback across route changes", () => {
+    render(<MusicContextProvider><Controls /><MemoryRouter><Link to="/songs">Navigate songs</Link>
+      <Routes><Route path="/" element={<NowPlaying />} /><Route path="/songs" element={<NowPlayingMini />} /></Routes>
+    </MemoryRouter></MusicContextProvider>);
+    cycle(); shuffle(); toggle();
+    const audio = document.querySelector("audio")!;
+    fireEvent.click(screen.getByRole("link", { name: "Navigate songs" }));
+    expect(document.querySelector("audio")).toBe(audio);
+    expect(screen.getByRole("button", { name: "Mini player repeat: all" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Mini player shuffle: on" })).toBeTruthy();
+    expectIntent(true); expect(audio.play).toHaveBeenCalledTimes(1);
+  });
+  it.each([false, true])("ignores duplicate ended events and stale play rejection after repeat-one (Strict Mode: %s)", async strict => {
+    const old = deferred();
+    vi.mocked(HTMLMediaElement.prototype.play).mockImplementationOnce(function (this: HTMLMediaElement) { return start(this, old.promise); });
+    const { audio, unmount } = player(strict); cycle(); cycle(); toggle();
+    ended(audio); fireEvent.ended(audio);
+    expectIndex(0); expect(audio.play).toHaveBeenCalledTimes(2);
+    await act(async () => old.reject(new Error("old interrupted play")));
+    expectIntent(true); expect(screen.getByTestId("playback-error").textContent).toBe("");
+    unmount(); expect(audio.paused).toBe(true);
+    fireEvent.ended(audio); expect(audio.play).toHaveBeenCalledTimes(2);
+  });
+  it("does not repeat failed media or transition on an old source's ended event", () => {
+    const { audio } = player(); cycle(); toggle();
+    fireEvent.click(screen.getByRole("button", { name: "Remote queue" }));
+    state(audio).currentSrc = "http://localhost/one.mp3";
+    ended(audio); expect(screen.getByTestId("selected").textContent).toBe("jamendo:1");
+    state(audio).currentSrc = audio.src; state(audio).error = { code: 2 };
+    fireEvent.ended(audio); expect(screen.getByTestId("selected").textContent).toBe("jamendo:1");
+    fireEvent.error(audio); expectIntent(false);
+    expect(screen.getByTestId("playback-error").textContent).toContain("Check your connection");
   });
 });

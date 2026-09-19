@@ -18,7 +18,7 @@ export default function Songs() {
           <article
             key={track.id}
             aria-current={selectedTrack?.id === track.id ? "true" : undefined}
-            className="flex items-center gap-4 rounded-xl bg-neutral-900 p-4"
+            className="flex min-w-0 items-center gap-3 sm:gap-4 rounded-xl bg-neutral-900 p-4"
           >
             <span className="w-6 text-right text-sm text-neutral-500">
               {index + 1}
@@ -38,7 +38,7 @@ export default function Songs() {
               onClick={() => selectedTrack?.id === track.id && (isPlaying || isLoading)
                 ? togglePlay() : playQueue(localPlayableCatalog, index)}
               className="rounded-full bg-emerald-600 px-3 py-2 text-sm shrink-0">
-              {selectedTrack?.id === track.id ? isLoading ? "Loading…" : isPlaying ? "Pause" : "Play · selected" : "Play"}
+              {selectedTrack?.id === track.id ? isLoading ? "Loading…" : isPlaying ? "Pause" : <><span className="sm:hidden">Play</span><span className="hidden sm:inline">Play · selected</span></> : "Play"}
             </button>
           </article>
         ))}

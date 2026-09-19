@@ -2,6 +2,7 @@ import { useMusicPlayer } from "@/context/music-player-context";
 import { headphones } from "@/assets/images";
 import { PlaybackFeedback, TrackAttribution } from "./PlaybackFeedback";
 import { SeekControl, VolumeControls } from "./MediaControls";
+import { PlaybackModes } from "./PlaybackModes";
 import { CiPause1, CiPlay1 } from "react-icons/ci";
 import { IoPlayBackOutline, IoPlayForwardOutline } from "react-icons/io5";
 
@@ -10,8 +11,8 @@ export function NowPlayingMini() {
     useMusicPlayer();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-md border-t border-white/10 ">
-      <div className="flex items-center justify-between px-4 py-3 max-w-7xl mx-auto">
+    <div className="fixed bottom-0 left-0 right-0 z-50 max-h-[60vh] overflow-y-auto bg-black/95 text-white backdrop-blur-md border-t border-white/20">
+      <div className="flex items-center justify-between gap-2 px-4 py-3 max-w-7xl mx-auto">
 
         <div className="flex items-center gap-3 min-w-0">
           {track && <img
@@ -26,7 +27,7 @@ export function NowPlayingMini() {
           </div>
         </div>
 
-        <div className="flex items-center gap-5 text-xl">
+        <div className="flex shrink-0 items-center gap-3 sm:gap-5 text-xl">
           <button type="button" disabled={!track} aria-label="Previous track" className="text-white cursor-pointer hover:text-emerald-500 disabled:opacity-50" title="back" onClick={handlePrev}>
             <IoPlayBackOutline />
           </button>
@@ -47,9 +48,10 @@ export function NowPlayingMini() {
         </div>
 
       </div>
-      <div className="grid grid-cols-2 gap-4 max-w-7xl mx-auto px-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-4 max-w-7xl mx-auto px-4">
         <SeekControl label="Mini player" /><VolumeControls label="Mini player" />
       </div>
+      <div className="max-w-7xl mx-auto px-4"><PlaybackModes label="Mini player" /></div>
       <div className="max-w-7xl mx-auto px-4 pb-2"><PlaybackFeedback /></div>
     </div>
   );

@@ -10,6 +10,7 @@ import { SearchProvider } from "@/context/SearchProvider";
 import { MusicContextProvider } from "@/context/MusicContext";
 import { useSearch } from "@/context/SearchContext";
 import Search from "@/pages/Search";
+import Home from "@/pages/Home";
 import type { JamendoTrack } from "@/types/types";
 
 vi.mock("@/api/jamendo", () => ({ fetchJamendoTracks: vi.fn() }));
@@ -24,7 +25,7 @@ function deferred<T>() {
 }
 const wrapper = ({ children }: { children: ReactNode }) => <SearchProvider>{children}</SearchProvider>;
 function page(initial = "/search?q=first", strict = false) {
-  const router = createMemoryRouter([{ element: <><Header /><Outlet /></>, children: [{ path: "/search", element: <Search /> }, { path: "/other", element: <p>Other page</p> }] }], { initialEntries: [initial] });
+  const router = createMemoryRouter([{ element: <><Header /><Outlet /></>, children: [{ path: "/", element: <Home /> }, { path: "/search", element: <Search /> }, { path: "/other", element: <p>Other page</p> }] }], { initialEntries: [initial] });
   const tree = <MusicContextProvider><SearchProvider><RouterProvider router={router} /></SearchProvider></MusicContextProvider>;
   const view = render(strict ? <StrictMode>{tree}</StrictMode> : tree);
   return { router, ...view };
@@ -94,6 +95,20 @@ describe("race-safe search state", () => {
 });
 
 describe("URL ownership and rendered results", () => {
+  it("keeps Home's demo list stable after searching without another provider request", async () => {
+    api.mockResolvedValue([song("Remote search match")]);
+    const { router } = page("/");
+    expect(screen.getAllByText("From the demo playlist")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Play Luv" })).toBeTruthy();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "rock" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    await screen.findByText("Remote search match");
+    await act(async () => { await router.navigate("/"); });
+    expect(screen.getByRole("button", { name: "Play Luv" })).toBeTruthy();
+    expect(screen.queryByText("Remote search match")).toBeNull();
+    expect(api).toHaveBeenCalledTimes(1);
+    expect(document.querySelectorAll("audio")).toHaveLength(1);
+  });
   it("header submission starts one page-owned request, renders album_name, and empty submission resets", async () => {
     api.mockResolvedValue([song("Result")]);
     const { router } = page("/search");

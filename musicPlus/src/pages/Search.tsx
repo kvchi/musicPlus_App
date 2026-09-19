@@ -85,7 +85,7 @@ export default function Search() {
               {playable && <TrackAttribution track={playable} />}
               {!playable && <p className="text-xs text-neutral-400">Audio unavailable</p>}
             </div>
-            <span className="text-sm tabular-nums text-neutral-400">
+            <span className="hidden sm:inline text-sm tabular-nums text-neutral-400">
               {formatDuration(track.duration)}
             </span>
             <button type="button" disabled={!playable}

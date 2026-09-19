@@ -2,6 +2,7 @@ import { useMusicPlayer } from "@/context/music-player-context";
 import { headphones } from "@/assets/images";
 import { PlaybackFeedback, TrackAttribution } from "./PlaybackFeedback";
 import { SeekControl, VolumeControls } from "./MediaControls";
+import { PlaybackModes } from "./PlaybackModes";
 import { useEffect, useState } from "react";
 import { CiPause1, CiPlay1 } from "react-icons/ci";
 import { IoPlayBackOutline, IoPlayForwardOutline } from "react-icons/io5";
@@ -33,7 +34,9 @@ export function NowPlaying() {
 
   if (!track) return <div className="p-6 rounded-2xl text-white bg-neutral-900">
     <h3 className="text-xl font-semibold mb-4">Now Playing</h3>
-    <p>Choose a track from Songs or search.</p><PlaybackFeedback />
+    <p>Choose a track from Songs or search.</p>
+    <PlaybackModes label="Full player" />
+    <PlaybackFeedback />
   </div>;
 
   return (
@@ -74,6 +77,7 @@ export function NowPlaying() {
           <IoPlayForwardOutline />
         </button>
       </div>
+      <PlaybackModes label="Full player" />
       <div className="mt-3"><VolumeControls label="Full player" /></div>
       <PlaybackFeedback />
     </div>

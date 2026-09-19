@@ -31,7 +31,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <aside
         className={`fixed top-0 left-0 h-full flex flex-col p-6 z-40 bg-black transform transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 w-80`}
+        } lg:translate-x-0 w-[min(20rem,100vw)]`}
       >
         <div className="flex items-center gap-3 mb-8 text-white">
           <h1 className="text-xl font-bold">MusicPlus</h1>

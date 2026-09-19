@@ -10,7 +10,7 @@ export function ForYouSection() {
       </div>
 
       <p className="mb-4 text-sm text-neutral-400">These sample mix cards are visual previews and do not start playback.</p>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-4">
         <MusicCard image={cover} title="Afrobeats Mix" subtitle="Bright and energetic" />
         <MusicCard image={headphones} title="Focus Mix" subtitle="For deep listening" />
         <MusicCard image={woman} title="Fresh Finds" subtitle="New discoveries" />

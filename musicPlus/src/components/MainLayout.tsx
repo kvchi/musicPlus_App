@@ -25,7 +25,7 @@ export default function MainLayout() {
             <Header onMenuToggle={() => setSidebarOpen(true)} />
           </div>
 
-          <main className={`mt-[100px] px-4 sm:px-6 ${hideMini ? "pb-28" : "pb-64"}`}>
+          <main className={`min-w-0 mt-[100px] px-4 sm:px-6 ${hideMini ? "pb-28" : "pb-[26rem] sm:pb-80"}`}>
             <Outlet />
           </main>
         </div>

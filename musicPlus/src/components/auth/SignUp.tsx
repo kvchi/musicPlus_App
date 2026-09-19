@@ -89,7 +89,7 @@ export default function SignUp() {
 
   return (
     <main className="min-h-screen bg-black px-4 py-10">
-      <Card className="w-full max-w-md p-8 mx-auto">
+      <Card className="w-full max-w-md p-5 sm:p-8 mx-auto">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold">Create your account</h1>
           <p className="text-gray-600 mt-2">Sign up to start discovering music</p>
@@ -145,7 +145,7 @@ export default function SignUp() {
           </form>
         )}
 
-        <div className="mt-3 flex justify-between text-sm">
+        <div className="mt-3 flex flex-wrap justify-between gap-2 text-sm">
           <Link to="/" className="text-gray-600 hover:underline">Back home</Link>
           <Link to="/sign-in" className="text-blue-600 hover:underline">Already registered?</Link>
         </div>

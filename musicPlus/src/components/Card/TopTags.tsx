@@ -46,7 +46,7 @@ if (tags.length === 0) {
 return (
     <section className="p-4">
         <h2 className="text-2xl font-bold mb-4 text-white">Top Tags</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
             {tags.slice(0,6).map((tag) => (
                 <MusicCard
                     key={tag.name}

@@ -1,8 +1,14 @@
 import { createContext, useContext } from "react";
 import type { RefObject } from "react";
 import type { PlayableTrack } from "@/types/playable-track";
+import type { RepeatMode } from "@/lib/queue-traversal";
 
 interface MusicContextType {
+  repeatMode: RepeatMode;
+  setRepeatMode: (mode: RepeatMode) => void;
+  cycleRepeatMode: () => void;
+  isShuffled: boolean;
+  toggleShuffle: () => void;
   selectedTrack: PlayableTrack | null;
   queue: readonly PlayableTrack[];
   currentIndex: number;

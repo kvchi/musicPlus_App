@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { MusicContext } from "./music-player-context";
 import { hasPlayableAudio, localPlayableCatalog } from "@/lib/track-adapters";
 import type { PlayableTrack } from "@/types/playable-track";
+import { createTraversal, nextTraversal, previousTraversal, toggleTraversal } from "@/lib/queue-traversal";
+import type { RepeatMode } from "@/lib/queue-traversal";
 
 type Selection = { queue: readonly PlayableTrack[]; index: number };
 const copyQueue = (tracks: readonly PlayableTrack[]) => Object.freeze(
@@ -29,6 +31,24 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
     queue: copyQueue(localPlayableCatalog), index: localPlayableCatalog.length ? 0 : -1,
   }));
   const selectionRef = useRef(selection);
+  const [repeatMode, updateRepeatMode] = useState<RepeatMode>("off");
+  const repeatRef = useRef<RepeatMode>("off");
+  const [isShuffled, setIsShuffled] = useState(false);
+  const shuffleRef = useRef(false);
+  const traversalRef = useRef(createTraversal(selection.queue.length, selection.index, false));
+  const setRepeatMode = useCallback((mode: RepeatMode) => {
+    if (!["off", "all", "one"].includes(mode)) return;
+    repeatRef.current = mode;
+    updateRepeatMode(mode);
+  }, []);
+  const cycleRepeatMode = useCallback(() => {
+    setRepeatMode(repeatRef.current === "off" ? "all" : repeatRef.current === "all" ? "one" : "off");
+  }, [setRepeatMode]);
+  const toggleShuffle = useCallback(() => {
+    shuffleRef.current = !shuffleRef.current;
+    traversalRef.current = toggleTraversal(traversalRef.current, selectionRef.current.index, shuffleRef.current);
+    setIsShuffled(shuffleRef.current);
+  }, []);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -179,7 +199,7 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
   }, [invalidateOperation, requestPlay]);
 
   const playQueue = useCallback((tracks: readonly PlayableTrack[], startIndex: number) => {
-    if (!tracks.length) { select(copyQueue([]), -1, false); return; }
+    if (!tracks.length) { traversalRef.current = createTraversal(0, -1, shuffleRef.current); select(copyQueue([]), -1, false); return; }
     if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex >= tracks.length) {
       setError("Choose a valid track to start playback.");
       return;
@@ -189,6 +209,7 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     // Neither later search results nor caller mutations can replace this queue.
+    traversalRef.current = createTraversal(tracks.length, startIndex, shuffleRef.current);
     select(copyQueue(tracks), startIndex, true);
   }, [select]);
   const playTrack = useCallback((track: PlayableTrack) => playQueue([track], 0), [playQueue]);
@@ -215,12 +236,13 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
   }, [invalidateOperation, requestPlay, retryPlayback]);
 
   const handleNext = useCallback(() => {
-    const { queue, index } = selectionRef.current;
-    if (queue.length) select(queue, (index + 1) % queue.length, intentRef.current);
+    const { queue } = selectionRef.current;
+    const step = nextTraversal(traversalRef.current, false, repeatRef.current, shuffleRef.current);
+    if (step) { traversalRef.current = step.traversal; select(queue, step.index, intentRef.current); }
   }, [select]);
   const handlePrev = useCallback(() => {
     const audio = audioRef.current;
-    const { queue, index } = selectionRef.current;
+    const { queue } = selectionRef.current;
     if (!queue.length) return;
     if (audio.currentTime > 2) {
       try {
@@ -230,7 +252,8 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
         setControlsError("Seeking is unavailable for this audio. Playback can continue.");
       }
     } else {
-      select(queue, (index + queue.length - 1) % queue.length, intentRef.current);
+      const step = previousTraversal(traversalRef.current, shuffleRef.current);
+      if (step) { traversalRef.current = step.traversal; select(queue, step.index, intentRef.current); }
     }
   }, [select]);
 
@@ -271,10 +294,12 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
       if (matchesSource() && intentRef.current) { setIsLoading(true); setIsPlaying(false); }
     };
     const onEnded = () => {
-      if (!matchesSource() || !audio.ended || !intentRef.current || endedVersionRef.current === sourceVersionRef.current) return;
+      if (!matchesSource() || audio.error || !audio.ended || !intentRef.current || endedVersionRef.current === sourceVersionRef.current) return;
       endedVersionRef.current = sourceVersionRef.current;
       const { queue, index } = selectionRef.current;
-      if (index + 1 < queue.length) select(queue, index + 1, true);
+      const step = repeatRef.current === "one" ? null : nextTraversal(traversalRef.current, true, repeatRef.current, shuffleRef.current);
+      if (repeatRef.current === "one") select(queue, index, true);
+      else if (step) { traversalRef.current = step.traversal; select(queue, step.index, true); }
       else {
         invalidateOperation();
         intentRef.current = false;
@@ -327,6 +352,7 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
     selectedTrack: selection.queue[selection.index] ?? null, queue: selection.queue,
     currentIndex: selection.index, isPlaying, isLoading, progress, duration, error,
     canSeek, volume, isMuted, controlsError, seek, setVolume, toggleMute,
+    repeatMode, setRepeatMode, cycleRepeatMode, isShuffled, toggleShuffle,
     playTrack, playQueue, retryPlayback, togglePlay, handleNext, handlePrev, audioRef,
   }}><audio ref={audioRef} preload="metadata" />{children}</MusicContext.Provider>;
 };

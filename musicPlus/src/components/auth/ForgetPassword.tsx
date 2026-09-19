@@ -62,7 +62,7 @@ export default function ForgetPassword() {
         }}
 
         return (
-          <Card className="w-full max-w-md p-8 mx-auto my-10">
+          <Card className="w-[calc(100%-2rem)] max-w-md p-5 sm:p-8 mx-auto my-10">
             <h2 className='text-2xl font-bold text-center mb-6'>Reset your Password</h2>
 
             {error && (

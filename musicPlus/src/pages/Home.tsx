@@ -3,11 +3,8 @@ import HeroCard from "@/components/Home/HeroCard";
 import { NowPlaying } from "@/components/Home/NowPlaying";
 import { RecentSection } from "@/components/Home/RecentSection";
 import { ViralHitsSection } from "@/components/Home/ViralHitsSection";
-import { useSearch } from "@/context/SearchContext";
 
 export default function Home() {
-  const { results } = useSearch();
-
   return (
     <>
       <div className="bg-black min-h-screen">
@@ -27,7 +24,7 @@ export default function Home() {
                 <NowPlaying />
               </div>
 
-              <ViralHitsSection tracks={results} />
+              <ViralHitsSection />
             </div>
 
             {/* RIGHT SIDE */}
