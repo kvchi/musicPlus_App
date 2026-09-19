@@ -12,7 +12,7 @@ MusicPlus is a full-stack music discovery and player project. The React client c
 - Global discovery charts shown after sign-in
 - Express health endpoint with optional MongoDB connectivity
 
-Demo mix cards are display-only. The demo-playlist section is not listening history. Songs and playable Jamendo search results start their own ordered playback queues. Last.fm discovery remains metadata-only. Saved playlists, favorites, listening history, and advanced queue editing remain future work.
+Demo mix cards are display-only. The demo-playlist section is not listening history. Songs and playable Jamendo search results start their own ordered playback queues. Last.fm discovery remains metadata-only. Saved playlists, favorites, listening history, and drag-and-drop queue editing remain future work.
 
 ## Up Next and basic queue actions (Phase 4A)
 
@@ -23,6 +23,14 @@ Play Next puts a new track first in the upcoming plan. If that track is already 
 Natural completion and manual Next both consume Play Next entries before the remaining queue. Repeat one replays the current track on natural completion, leaving Up Next untouched; manual Next still advances. With repeat off, natural completion stops after the current plan, while manual Next wraps to the start as it did before this phase. Repeat all starts another full cycle after the plan. With shuffle on, Play Next remains first and Add to Queue goes after the remaining shuffled cycle. A shuffle toggle starts a new traversal from the current track; explicitly promoted tracks stay ahead of the reshuffled remainder. At a cycle boundary, a new shuffle order avoids an immediate repeat when another track exists.
 
 Previous restarts the current track after two seconds as before. Otherwise it retraces playback history; at the oldest history entry, shuffle stays there and ordinary order wraps to the preceding queue track. Next retraces forward history before unvisited entries. A queue edit after going backward makes those forward-history entries part of the upcoming plan: Play Next goes before them, Add to Queue goes after them and the remaining plan. No intended forward entry is silently removed. The queue is session-only; this phase has no remove, reorder, playlist, or persistence feature.
+
+## Up Next editing (Phase 4B)
+
+Each upcoming row has Remove, Move Up, and Move Down buttons. Boundary moves are disabled. These buttons target a queue slot, so two entries with the same source-prefixed ID remain distinct; removing one leaves the other. The current track has no edit buttons. Edits leave the audio source, progress, volume, and playing/paused state alone, and the visible Up Next order is the order used by manual Next and natural completion.
+
+Remove excludes that slot from the remaining cycle and later repeat-all cycles. Its existing playback-history record is retained; Previous can still retrace an already-played entry. Play Next or Add to Queue can restore an explicitly removed track, at the front or end of Up Next. Moving a row changes only its place in the remaining plan. Play Next still takes the first position, while Add to Queue follows all remaining entries. After Previous, an edit converts the forward route into the editable plan while preserving the history already traversed; the edited future is what Next follows.
+
+Repeat one still replays the current track on natural completion; manual Next follows edited Up Next. Repeat off stops at the end on natural completion, while a manual Next starts another cycle using only retained slots. Repeat all starts another cycle using only retained slots. Shuffle sets the initial unedited order; after an explicit edit, the displayed remaining plan stays fixed through a shuffle toggle, and a later cycle can shuffle retained slots again. Removed slots stay excluded, including when Previous wraps from the oldest history entry. A new Play selection replaces the edited queue and resets these edits. Empty and one-track queues show no editable rows. There is no drag-and-drop or saved queue.
 
 ## Playback behavior (Phase 2)
 
@@ -142,7 +150,7 @@ Never commit real credentials. Both local `.env` files are ignored by Git.
 ## Portfolio roadmap
 
 1. Build authenticated MongoDB playlists, favorites, and listening history.
-2. Add advanced queue editing such as remove and reorder.
+2. Add drag-and-drop queue editing if it improves the keyboard-accessible controls.
 3. Extend existing component tests with API integration and browser end-to-end coverage.
 4. Deploy the client and API and add screenshots, architecture notes, and a demo video.
 

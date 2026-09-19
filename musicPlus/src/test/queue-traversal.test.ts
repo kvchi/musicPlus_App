@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createTraversal, editTraversal, nextTraversal, previousTraversal, toggleTraversal, upcomingIndices } from "@/lib/queue-traversal";
+import { createTraversal, editTraversal, editUpcoming, nextTraversal, previousTraversal, toggleTraversal, upcomingIndices } from "@/lib/queue-traversal";
 
 const random = () => 0;
 describe("queue traversal", () => {
@@ -122,5 +122,66 @@ describe("edited Up Next traversal", () => {
     const two = editTraversal(one, 1, "next", true);
     expect(upcomingIndices(two)).toEqual([1]);
     expect(nextTraversal(two, false, "one", false)!.index).toBe(1);
+  });
+});
+
+describe("Phase 4B Up Next edits", () => {
+  it("moves entries in displayed and actual Next order, then removes exactly one slot", () => {
+    let state = createTraversal(4, 0, false);
+    state = editUpcoming(state, 3, "up")!;
+    expect(upcomingIndices(state)).toEqual([1, 3, 2]);
+    state = editUpcoming(state, 1, "down")!;
+    expect(upcomingIndices(state)).toEqual([3, 1, 2]);
+    state = editUpcoming(state, 1, "remove")!;
+    expect(upcomingIndices(state)).toEqual([3, 2]);
+    expect(editUpcoming(state, 0, "remove")).toBeNull();
+    for (const index of [3, 2]) {
+      const step = nextTraversal(state, false, "off", false)!;
+      expect(step.index).toBe(index); state = step.traversal;
+    }
+    expect(nextTraversal(state, true, "off", false)).toBeNull();
+  });
+  it("keeps removed slots out of repeat-all and preserves edits across shuffle toggle", () => {
+    let state = createTraversal(4, 0, true, random);
+    const removed = upcomingIndices(state)[1];
+    state = editUpcoming(state, removed, "remove")!;
+    state = editUpcoming(state, upcomingIndices(state)[1], "up")!;
+    const plan = upcomingIndices(state);
+    state = toggleTraversal(state, 0, false, random);
+    expect(upcomingIndices(state)).toEqual(plan);
+    for (const index of plan) {
+      const step = nextTraversal(state, true, "all", false, random)!;
+      expect(step.index).toBe(index); state = step.traversal;
+    }
+    const wrap = nextTraversal(state, true, "all", false, random)!;
+    expect(wrap.index).toBe(0);
+    expect(wrap.traversal.order).toHaveLength(4);
+    expect(upcomingIndices(wrap.traversal)).not.toContain(removed);
+  });
+  it("retains played history and edits forward history without changing the current slot", () => {
+    let state = createTraversal(4, 0, false);
+    state = nextTraversal(state, false, "off", false)!.traversal;
+    state = nextTraversal(state, false, "off", false)!.traversal;
+    state = previousTraversal(state, false)!.traversal;
+    expect(state.history[state.historyPosition]).toBe(1);
+    state = editUpcoming(state, 2, "remove")!;
+    expect(state.history).toEqual([0, 1]);
+    expect(upcomingIndices(state)).toEqual([3]);
+    expect(previousTraversal(state, false)!.index).toBe(0);
+    expect(nextTraversal(state, false, "off", false)!.index).toBe(3);
+  });
+  it("handles no upcoming item, a single item, and an edit at the end", () => {
+    expect(editUpcoming(createTraversal(0, -1, false), 0, "remove")).toBeNull();
+    expect(editUpcoming(createTraversal(1, 0, false), 0, "remove")).toBeNull();
+    let state = createTraversal(2, 0, false);
+    expect(editUpcoming(state, 1, "up")).toBeNull();
+    expect(editUpcoming(state, 1, "down")).toBeNull();
+    state = editUpcoming(state, 1, "remove")!;
+    expect(upcomingIndices(state)).toEqual([]);
+    expect(nextTraversal(state, true, "off", false)).toBeNull();
+    expect(nextTraversal(state, false, "off", false)!.index).toBe(0);
+    expect(previousTraversal(state, false)!.index).toBe(0);
+    state = editTraversal(state, 1, "end", false);
+    expect(upcomingIndices(state)).toEqual([1]);
   });
 });

@@ -83,7 +83,7 @@ beforeEach(() => {
 });
 
 function Controls() {
-  const { currentIndex, selectedTrack, queue, upNext, queueNotice, playNext, addToQueue, isPlaying, isLoading, error, togglePlay, handleNext, handlePrev, playQueue, playTrack, repeatMode, cycleRepeatMode, isShuffled, toggleShuffle } = useMusicPlayer();
+  const { currentIndex, selectedTrack, queue, upNext, queueNotice, playNext, addToQueue, editUpNext, isPlaying, isLoading, error, togglePlay, handleNext, handlePrev, playQueue, playTrack, repeatMode, cycleRepeatMode, isShuffled, toggleShuffle } = useMusicPlayer();
   return <>
     <output data-testid="index">{currentIndex}</output>
     <output data-testid="intent">{String(isPlaying)}</output>
@@ -101,6 +101,9 @@ function Controls() {
     <button onClick={handleNext}>Test next</button>
     <button onClick={handlePrev}>Test previous</button>
     <button onClick={() => playQueue(remoteQueue, 0)}>Remote queue</button>
+    <button onClick={() => playQueue([remoteQueue[0], remoteQueue[0], remoteQueue[1]], 0)}>Duplicate queue</button>
+    <button onClick={() => editUpNext(1, "remove")}>Remove slot 1</button>
+    <button onClick={() => editUpNext(2, "up")}>Move slot 2 up</button>
     <button onClick={() => playNext(remoteQueue[0])}>Play next remote 1</button>
     <button onClick={() => playNext(remoteQueue[1])}>Play next remote 2</button>
     <button onClick={() => addToQueue(remoteQueue[0])}>Add remote 1</button>
@@ -948,5 +951,62 @@ describe("Phase 4A Up Next actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Play two" }));
     expect(upNext()).toBe("local:2");
     expect(screen.getByTestId("queue-notice").textContent).toContain("replaced Up Next");
+  });
+});
+
+describe("Phase 4B Up Next controls", () => {
+  it.each([false, true])("keeps media and intent while editing the current queue (playing: %s)", playing => {
+    const { audio } = player();
+    if (playing) toggle();
+    audio.currentTime = 29;
+    const source = audio.src;
+    const calls = [vi.mocked(audio.play).mock.calls.length, vi.mocked(audio.pause).mock.calls.length, vi.mocked(audio.load).mock.calls.length];
+    fireEvent.click(screen.getByRole("button", { name: "Move slot 2 up" }));
+    expect(screen.getByTestId("up-next").textContent).toBe("local:2,local:1");
+    fireEvent.click(screen.getByRole("button", { name: "Remove slot 1" }));
+    expect(screen.getByTestId("up-next").textContent).toBe("local:2");
+    expect(audio.src).toBe(source);
+    expect(audio.currentTime).toBe(29);
+    expect([vi.mocked(audio.play).mock.calls.length, vi.mocked(audio.pause).mock.calls.length, vi.mocked(audio.load).mock.calls.length]).toEqual(calls);
+    expectIntent(playing);
+    next(); expect(screen.getByTestId("selected").textContent).toBe("local:2");
+  });
+  it("edits one duplicate queue occurrence by slot and keeps the other", () => {
+    player();
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate queue" }));
+    expect(screen.getByTestId("up-next").textContent).toBe("jamendo:1,jamendo:2");
+    fireEvent.click(screen.getByRole("button", { name: "Remove slot 1" }));
+    expect(screen.getByTestId("up-next").textContent).toBe("jamendo:2");
+    expect(screen.getByTestId("selected").textContent).toBe("jamendo:1");
+  });
+  it("natural completion follows edited order and repeat-one leaves it pending", () => {
+    const { audio } = player();
+    fireEvent.click(screen.getByRole("button", { name: "Move slot 2 up" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove slot 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cycle repeat" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cycle repeat" }));
+    toggle(); ended(audio);
+    expect(screen.getByTestId("selected").textContent).toBe("local:0");
+    expect(screen.getByTestId("up-next").textContent).toBe("local:2");
+    fireEvent.click(screen.getByRole("button", { name: "Cycle repeat" }));
+    ended(audio);
+    expect(screen.getByTestId("selected").textContent).toBe("local:2");
+  });
+  it("exposes labelled mobile-friendly edit buttons and keeps edits through mini route changes", () => {
+    const view = render(<MusicContextProvider><Controls /><MemoryRouter>
+      <Link to="/mini">Mini route</Link><Link to="/">Home route</Link>
+      <Routes><Route path="/" element={<NowPlaying />} /><Route path="/mini" element={<NowPlayingMini />} /></Routes>
+    </MemoryRouter></MusicContextProvider>);
+    fireEvent.click(screen.getByLabelText("Full player Up Next, 2 upcoming tracks"));
+    const move = screen.getByRole("button", { name: "Move three up from position 2" });
+    expect(move.className).toContain("focus-visible:outline-2");
+    fireEvent.click(move);
+    expect(screen.getByTestId("up-next").textContent).toBe("local:2,local:1");
+    fireEvent.click(screen.getByRole("button", { name: "Remove two from Up Next position 2" }));
+    fireEvent.click(screen.getByRole("link", { name: "Mini route" }));
+    expect(screen.getByRole("link", { name: "Up Next (1)" })).toBeTruthy();
+    expect(view.container.querySelectorAll("audio")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("link", { name: "Home route" }));
+    expect(screen.getByTestId("up-next").textContent).toBe("local:2");
   });
 });

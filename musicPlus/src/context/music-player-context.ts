@@ -12,9 +12,11 @@ interface MusicContextType {
   selectedTrack: PlayableTrack | null;
   queue: readonly PlayableTrack[];
   upNext: readonly PlayableTrack[];
+  upNextEntries: readonly { track: PlayableTrack; queueIndex: number }[];
   queueNotice: string | null;
   playNext: (track: PlayableTrack) => void;
   addToQueue: (track: PlayableTrack) => void;
+  editUpNext: (queueIndex: number, action: "remove" | "up" | "down") => void;
   currentIndex: number;
   isPlaying: boolean;
   isLoading: boolean;

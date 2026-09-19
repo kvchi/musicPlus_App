@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { MusicContext } from "./music-player-context";
 import { hasPlayableAudio, localPlayableCatalog } from "@/lib/track-adapters";
 import type { PlayableTrack } from "@/types/playable-track";
-import { createTraversal, editTraversal, nextTraversal, previousTraversal, toggleTraversal, upcomingIndices } from "@/lib/queue-traversal";
+import { createTraversal, editTraversal, editUpcoming, nextTraversal, previousTraversal, toggleTraversal, upcomingIndices } from "@/lib/queue-traversal";
 import type { RepeatMode } from "@/lib/queue-traversal";
 
 type Selection = { queue: readonly PlayableTrack[]; index: number };
@@ -228,13 +228,15 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
       setQueueNotice(`${track.title} is selected and ready to play.`);
       return;
     }
-    if (queue[index]?.id === track.id) {
+    const upcoming = upcomingIndices(traversalRef.current);
+    const upcomingMatch = upcoming.find(slot => queue[slot]?.id === track.id);
+    const removedMatch = traversalRef.current.excluded.find(slot => queue[slot]?.id === track.id);
+    if (queue[index]?.id === track.id && upcomingMatch === undefined && removedMatch === undefined) {
       setQueueNotice(`${track.title} is already the current track.`);
       return;
     }
-    const existing = queue.findIndex(item => item.id === track.id);
-    const upcoming = upcomingIndices(traversalRef.current);
-    if (existing >= 0 && !upcoming.includes(existing)) {
+    const existing = upcomingMatch ?? removedMatch ?? queue.findIndex(item => item.id === track.id);
+    if (existing >= 0 && !upcoming.includes(existing) && !traversalRef.current.excluded.includes(existing)) {
       setQueueNotice(`${track.title} has already played in this queue. Select Play to start a new queue.`);
       return;
     }
@@ -259,6 +261,19 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
   }, [select]);
   const playNext = useCallback((track: PlayableTrack) => queueTrack(track, "next"), [queueTrack]);
   const addToQueue = useCallback((track: PlayableTrack) => queueTrack(track, "end"), [queueTrack]);
+  const editUpNext = useCallback((queueIndex: number, action: "remove" | "up" | "down") => {
+    const { queue } = selectionRef.current;
+    const track = queue[queueIndex];
+    const updated = editUpcoming(traversalRef.current, queueIndex, action);
+    if (!track || !updated) {
+      setQueueNotice("That Up Next change is unavailable.");
+      return;
+    }
+    traversalRef.current = updated;
+    setSelection(current => ({ ...current }));
+    setQueueNotice(action === "remove" ? `${track.title} was removed from Up Next.` :
+      `${track.title} moved ${action === "up" ? "up" : "down"} in Up Next.`);
+  }, []);
   const retryPlayback = useCallback(() => {
     const { queue, index } = selectionRef.current;
     if (queue[index]) select(queue, index, true);
@@ -397,7 +412,9 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
   return <MusicContext.Provider value={{
     selectedTrack: selection.queue[selection.index] ?? null, queue: selection.queue,
     upNext: upcomingIndices(traversalRef.current).map(index => selection.queue[index]).filter((track): track is PlayableTrack => Boolean(track)),
-    queueNotice, playNext, addToQueue,
+    upNextEntries: upcomingIndices(traversalRef.current).map(queueIndex => ({ track: selection.queue[queueIndex], queueIndex }))
+      .filter((entry): entry is { track: PlayableTrack; queueIndex: number } => Boolean(entry.track)),
+    queueNotice, playNext, addToQueue, editUpNext,
     currentIndex: selection.index, isPlaying, isLoading, progress, duration, error,
     canSeek, volume, isMuted, controlsError, seek, setVolume, toggleMute,
     repeatMode, setRepeatMode, cycleRepeatMode, isShuffled, toggleShuffle,
