@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createTraversal, nextTraversal, previousTraversal, toggleTraversal } from "@/lib/queue-traversal";
+import { createTraversal, editTraversal, nextTraversal, previousTraversal, toggleTraversal, upcomingIndices } from "@/lib/queue-traversal";
 
 const random = () => 0;
 describe("queue traversal", () => {
@@ -59,5 +59,68 @@ describe("queue traversal", () => {
     expect(nextTraversal(one, true, "off", shuffle, random)).toBeNull();
     expect(nextTraversal(one, true, "all", shuffle, random)!.index).toBe(0);
     expect(nextTraversal(one, false, "one", shuffle, random)!.index).toBe(0);
+  });
+});
+
+describe("edited Up Next traversal", () => {
+  it("plays a new Play Next entry before the original order and an added entry last", () => {
+    let state = createTraversal(3, 0, false);
+    state = editTraversal(state, 3, "next", true);
+    state = editTraversal(state, 4, "end", true);
+    expect(upcomingIndices(state)).toEqual([3, 1, 2, 4]);
+    for (const expected of [3, 1, 2, 4]) {
+      const step = nextTraversal(state, true, "off", false)!;
+      expect(step.index).toBe(expected);
+      state = step.traversal;
+    }
+    expect(nextTraversal(state, true, "off", false)).toBeNull();
+    expect(upcomingIndices(state)).toEqual([]);
+  });
+  it("promotes one existing upcoming entry without playing it twice", () => {
+    let state = editTraversal(createTraversal(3, 0, false), 2, "next", false);
+    expect(upcomingIndices(state)).toEqual([2, 1]);
+    const first = nextTraversal(state, false, "off", false)!;
+    expect(first.index).toBe(2);
+    state = first.traversal;
+    expect(upcomingIndices(state)).toEqual([1]);
+    expect(nextTraversal(state, false, "off", false)!.index).toBe(1);
+  });
+  it("keeps forward playback history when Play Next is used after Previous", () => {
+    let state = createTraversal(3, 0, false);
+    state = nextTraversal(state, false, "off", false)!.traversal;
+    state = nextTraversal(state, false, "off", false)!.traversal;
+    state = previousTraversal(state, false)!.traversal;
+    expect(upcomingIndices(state)).toEqual([2]);
+    state = editTraversal(state, 3, "next", true);
+    expect(upcomingIndices(state)).toEqual([3, 2]);
+    state = nextTraversal(state, false, "off", false)!.traversal;
+    expect(previousTraversal(state, false)!.index).toBe(1);
+    expect(nextTraversal(state, false, "off", false)!.index).toBe(2);
+  });
+  it("keeps explicit Play Next ahead of a reshuffled remainder and repeats the full queue next cycle", () => {
+    let state = createTraversal(3, 0, true, random);
+    state = editTraversal(state, 3, "end", true);
+    state = editTraversal(state, 4, "next", true);
+    state = toggleTraversal(state, 0, true, random);
+    expect(upcomingIndices(state)[0]).toBe(4);
+    const visited = [0];
+    for (let count = 0; count < 4; count++) {
+      const step = nextTraversal(state, true, "off", true, random)!;
+      visited.push(step.index); state = step.traversal;
+    }
+    expect(new Set(visited).size).toBe(5);
+    expect(nextTraversal(state, true, "off", true, random)).toBeNull();
+    const wrap = nextTraversal(state, true, "all", true, random)!;
+    expect(wrap.index).not.toBe(visited.at(-1));
+    expect(new Set(wrap.traversal.order).size).toBe(5);
+  });
+  it("handles empty and one-track edited queues", () => {
+    const empty = createTraversal(0, -1, false);
+    expect(upcomingIndices(empty)).toEqual([]);
+    const one = createTraversal(1, 0, false);
+    expect(upcomingIndices(one)).toEqual([]);
+    const two = editTraversal(one, 1, "next", true);
+    expect(upcomingIndices(two)).toEqual([1]);
+    expect(nextTraversal(two, false, "one", false)!.index).toBe(1);
   });
 });

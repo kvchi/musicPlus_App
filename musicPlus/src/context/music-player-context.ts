@@ -11,6 +11,10 @@ interface MusicContextType {
   toggleShuffle: () => void;
   selectedTrack: PlayableTrack | null;
   queue: readonly PlayableTrack[];
+  upNext: readonly PlayableTrack[];
+  queueNotice: string | null;
+  playNext: (track: PlayableTrack) => void;
+  addToQueue: (track: PlayableTrack) => void;
   currentIndex: number;
   isPlaying: boolean;
   isLoading: boolean;

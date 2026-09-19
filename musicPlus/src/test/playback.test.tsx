@@ -9,6 +9,7 @@ import { NowPlaying } from "@/components/Home/NowPlaying";
 import { NowPlayingMini } from "@/components/Home/NowPlayingMini";
 import Songs from "@/pages/Songs";
 import Search from "@/pages/Search";
+import Queue from "@/pages/Queue";
 import Header from "@/components/Header";
 import { SearchProvider } from "@/context/SearchProvider";
 import { fetchJamendoTracks } from "@/api/jamendo";
@@ -82,12 +83,14 @@ beforeEach(() => {
 });
 
 function Controls() {
-  const { currentIndex, selectedTrack, queue, isPlaying, isLoading, error, togglePlay, handleNext, handlePrev, playQueue, playTrack, repeatMode, cycleRepeatMode, isShuffled, toggleShuffle } = useMusicPlayer();
+  const { currentIndex, selectedTrack, queue, upNext, queueNotice, playNext, addToQueue, isPlaying, isLoading, error, togglePlay, handleNext, handlePrev, playQueue, playTrack, repeatMode, cycleRepeatMode, isShuffled, toggleShuffle } = useMusicPlayer();
   return <>
     <output data-testid="index">{currentIndex}</output>
     <output data-testid="intent">{String(isPlaying)}</output>
     <output data-testid="selected">{selectedTrack?.id ?? "none"}</output>
     <output data-testid="queue">{queue.map(track => track.id).join(",")}</output>
+    <output data-testid="up-next">{upNext.map(track => track.id).join(",")}</output>
+    <output data-testid="queue-notice">{queueNotice}</output>
     <output data-testid="loading">{String(isLoading)}</output>
     <output data-testid="playback-error">{error}</output>
     <output data-testid="repeat">{repeatMode}</output>
@@ -98,6 +101,10 @@ function Controls() {
     <button onClick={handleNext}>Test next</button>
     <button onClick={handlePrev}>Test previous</button>
     <button onClick={() => playQueue(remoteQueue, 0)}>Remote queue</button>
+    <button onClick={() => playNext(remoteQueue[0])}>Play next remote 1</button>
+    <button onClick={() => playNext(remoteQueue[1])}>Play next remote 2</button>
+    <button onClick={() => addToQueue(remoteQueue[0])}>Add remote 1</button>
+    <button onClick={() => addToQueue(remoteQueue[1])}>Add remote 2</button>
     <button onClick={() => playQueue(remoteQueue, 1)}>Remote second</button>
     <button onClick={() => playTrack(remoteQueue[1])}>Single remote</button>
     <button onClick={() => playQueue([], 0)}>Empty queue</button>
@@ -302,7 +309,7 @@ describe("shared queues and track selection", () => {
   });
 
   it.each([false, true])("explicit Play starts the default and a paused selection (mini: %s)", mini => {
-    const view = render(<MusicContextProvider><Controls />{mini ? <NowPlayingMini /> : <NowPlaying />}</MusicContextProvider>);
+    const view = render(<MusicContextProvider><Controls /><MemoryRouter>{mini ? <NowPlayingMini /> : <NowPlaying />}</MemoryRouter></MusicContextProvider>);
     const audio = view.container.querySelector("audio")!;
     selected("local:0"); expectIntent(false);
     expect(audio.play).not.toHaveBeenCalled();
@@ -432,7 +439,7 @@ describe("shared queues and track selection", () => {
   });
 
   it("plays the chosen local row and synchronizes full and mini views", () => {
-    const view = render(<MusicContextProvider><Controls /><Songs /><NowPlaying /><NowPlayingMini /></MusicContextProvider>);
+    const view = render(<MusicContextProvider><Controls /><MemoryRouter><Songs /><NowPlaying /><NowPlayingMini /></MemoryRouter></MusicContextProvider>);
     click("Play three"); selected("local:2"); expectIndex(2); expectIntent(true);
     const audio = view.container.querySelector("audio")!;
     expect(view.container.querySelectorAll("audio")).toHaveLength(1);
@@ -451,7 +458,7 @@ describe("shared queues and track selection", () => {
     const result = (id: string, audio?: string) => ({ id, name: `Catalog ${id}`, artist_name: "Catalog artist", album_name: "Album", duration: 100, audio });
     api.mockResolvedValueOnce([result("missing"), result("1", "https://example.invalid/j1.mp3"), result("2", "https://example.invalid/j2.mp3")]);
     const router = createMemoryRouter([{ element: <><Header /><Controls /><Outlet /><NowPlayingMini /></>, children: [
-      { path: "/search", element: <Search /> }, { path: "/songs", element: <Songs /> },
+      { path: "/search", element: <Search /> }, { path: "/songs", element: <Songs /> }, { path: "/queue", element: <Queue /> },
     ] }], { initialEntries: ["/search?q=first"] });
     const view = render(<MusicContextProvider><SearchProvider><RouterProvider router={router} /></SearchProvider></MusicContextProvider>);
     await screen.findByRole("button", { name: "Play Catalog 2" });
@@ -503,7 +510,7 @@ describe("shared seek and volume", () => {
 
   it.each([Number.NaN, Number.POSITIVE_INFINITY, 0, -1])("disables seeking for unusable duration %s", duration => {
     vi.spyOn(HTMLMediaElement.prototype, "duration", "get").mockReturnValue(duration);
-    const view = render(<MusicContextProvider><NowPlaying /><NowPlayingMini /></MusicContextProvider>);
+    const view = render(<MusicContextProvider><MemoryRouter><NowPlaying /><NowPlayingMini /></MemoryRouter></MusicContextProvider>);
     expect(screen.getByRole("slider", { name: "Full player seek" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("slider", { name: "Mini player seek" }).hasAttribute("disabled")).toBe(true);
     expect(view.container.querySelector("audio")!.play).not.toHaveBeenCalled();
@@ -563,7 +570,7 @@ describe("shared seek and volume", () => {
   });
 
   it("synchronizes both seek/volume controls from the shared element", () => {
-    const view = render(<MusicContextProvider><NowPlaying /><NowPlayingMini /></MusicContextProvider>);
+    const view = render(<MusicContextProvider><MemoryRouter><NowPlaying /><NowPlayingMini /></MemoryRouter></MusicContextProvider>);
     const audio = view.container.querySelector("audio")!;
     const fullSeek = screen.getByRole("slider", { name: "Full player seek" }) as HTMLInputElement;
     const miniSeek = screen.getByRole("slider", { name: "Mini player seek" }) as HTMLInputElement;
@@ -783,7 +790,7 @@ describe("repeat and shuffle modes", () => {
     expect(screen.getByTestId("selected").textContent).toBe("none"); expectIntent(false);
   });
   it("synchronizes labelled, pressed-state controls in both player views", () => {
-    render(<MusicContextProvider><NowPlaying /><NowPlayingMini /></MusicContextProvider>);
+    render(<MusicContextProvider><MemoryRouter><NowPlaying /><NowPlayingMini /></MemoryRouter></MusicContextProvider>);
     for (const view of ["Full player", "Mini player"]) {
       for (const mode of ["repeat", "shuffle"]) {
         const button = screen.getByRole("button", { name: `${view} ${mode}: off` });
@@ -843,5 +850,103 @@ describe("repeat and shuffle modes", () => {
     fireEvent.ended(audio); expect(screen.getByTestId("selected").textContent).toBe("jamendo:1");
     fireEvent.error(audio); expectIntent(false);
     expect(screen.getByTestId("playback-error").textContent).toContain("Check your connection");
+  });
+});
+
+describe("Phase 4A Up Next actions", () => {
+  const upNext = () => screen.getByTestId("up-next").textContent;
+  it.each([false, true])("edits upcoming tracks without touching current media (playing: %s)", playing => {
+    const { audio } = player();
+    if (playing) toggle();
+    audio.currentTime = 37;
+    const src = audio.src;
+    const calls = [vi.mocked(audio.play).mock.calls.length, vi.mocked(audio.pause).mock.calls.length, vi.mocked(audio.load).mock.calls.length];
+    fireEvent.click(screen.getByRole("button", { name: "Add remote 1" }));
+    expect(upNext()).toBe("local:1,local:2,jamendo:1");
+    fireEvent.click(screen.getByRole("button", { name: "Play next remote 2" }));
+    expect(upNext()).toBe("jamendo:2,local:1,local:2,jamendo:1");
+    fireEvent.click(screen.getByRole("button", { name: "Play next remote 1" }));
+    expect(upNext()).toBe("jamendo:1,jamendo:2,local:1,local:2");
+    fireEvent.click(screen.getByRole("button", { name: "Add remote 1" }));
+    expect(upNext()).toBe("jamendo:1,jamendo:2,local:1,local:2");
+    expect(screen.getByTestId("queue-notice").textContent).toContain("already in Up Next");
+    expect(audio.src).toBe(src);
+    expect(audio.currentTime).toBe(37);
+    expect([vi.mocked(audio.play).mock.calls.length, vi.mocked(audio.pause).mock.calls.length, vi.mocked(audio.load).mock.calls.length]).toEqual(calls);
+    expectIntent(playing);
+  });
+  it("keeps repeat-one on the current track until manual Next consumes Play Next", () => {
+    const { audio } = player();
+    fireEvent.click(screen.getByRole("button", { name: "Cycle repeat" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cycle repeat" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play next remote 1" }));
+    toggle(); ended(audio);
+    expect(screen.getByTestId("selected").textContent).toBe("local:0");
+    expect(upNext()?.split(",")[0]).toBe("jamendo:1");
+    next(); expect(screen.getByTestId("selected").textContent).toBe("jamendo:1");
+    expect(upNext()).not.toContain("jamendo:1");
+  });
+  it("initializes an empty queue paused and ignores queueing the current track", () => {
+    const { audio } = player();
+    fireEvent.click(screen.getByRole("button", { name: "Empty queue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add remote 1" }));
+    expect(screen.getByTestId("selected").textContent).toBe("jamendo:1");
+    expect(upNext()).toBe("");
+    expectIntent(false);
+    expect(audio.play).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Play next remote 1" }));
+    expect(screen.getByTestId("queue").textContent).toBe("jamendo:1");
+    expect(screen.getByTestId("queue-notice").textContent).toContain("current track");
+  });
+  it.each([false, true])("uses one listener owner when a queued song advances (Strict Mode: %s)", strict => {
+    const { audio, container, unmount } = player(strict);
+    fireEvent.click(screen.getByRole("button", { name: "Play next remote 1" }));
+    toggle(); ended(audio); fireEvent.ended(audio);
+    expect(screen.getByTestId("selected").textContent).toBe("jamendo:1");
+    expect(audio.play).toHaveBeenCalledTimes(2);
+    expect(container.querySelectorAll("audio")).toHaveLength(1);
+    unmount(); fireEvent.ended(audio);
+    expect(audio.play).toHaveBeenCalledTimes(2);
+  });
+  it("queues only playable Jamendo results and retains them across search clearing and navigation", async () => {
+    const api = vi.mocked(fetchJamendoTracks);
+    api.mockResolvedValueOnce([
+      { id: "missing", name: "Missing", artist_name: "Artist", album_name: "Album", duration: 90 },
+      { id: "1", name: "Catalog 1", artist_name: "Artist", album_name: "Album", duration: 90,
+        audio: "https://example.invalid/1.mp3", shareurl: "https://example.invalid/track/1", license_ccurl: "https://example.invalid/license/1" },
+      { id: "2", name: "Catalog 2", artist_name: "Artist", album_name: "Album", duration: 90,
+        audio: "https://example.invalid/2.mp3" },
+    ]);
+    const router = createMemoryRouter([{ element: <><Header /><Controls /><Outlet /><NowPlayingMini /></>, children: [
+      { path: "/search", element: <Search /> }, { path: "/songs", element: <Songs /> }, { path: "/queue", element: <Queue /> },
+    ] }], { initialEntries: ["/search?q=first"] });
+    const view = render(<MusicContextProvider><SearchProvider><RouterProvider router={router} /></SearchProvider></MusicContextProvider>);
+    await screen.findByRole("button", { name: "Play Catalog 2 next" });
+    expect(screen.getByRole("button", { name: "Play Missing next" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Add Missing to queue" }).hasAttribute("disabled")).toBe(true);
+    const audio = view.container.querySelector("audio")!;
+    const originalSource = audio.src;
+    audio.currentTime = 23;
+    fireEvent.click(screen.getByRole("button", { name: "Play Catalog 2 next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Catalog 1 to queue" }));
+    expect(upNext()).toBe("jamendo:2,local:1,local:2,jamendo:1");
+    expect(audio.src).toBe(originalSource);
+    expect(audio.currentTime).toBe(23);
+    expect(audio.play).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("link", { name: "Up Next (4)" }));
+    expect(router.state.location.pathname).toBe("/queue");
+    const panel = screen.getByLabelText("Queue page Up Next, 4 upcoming tracks");
+    panel.focus(); expect(document.activeElement).toBe(panel);
+    expect(screen.getByRole("link", { name: "View license for Catalog 1" }).getAttribute("href")).toBe("https://example.invalid/license/1");
+    api.mockResolvedValueOnce([]);
+    await act(async () => { await router.navigate("/search?q=first"); });
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+    await act(async () => { await router.navigate("/songs"); });
+    expect(upNext()).toBe("jamendo:2,local:1,local:2,jamendo:1");
+    expect(view.container.querySelector("audio")).toBe(audio);
+    fireEvent.click(screen.getByRole("button", { name: "Play two" }));
+    expect(upNext()).toBe("local:2");
+    expect(screen.getByTestId("queue-notice").textContent).toContain("replaced Up Next");
   });
 });

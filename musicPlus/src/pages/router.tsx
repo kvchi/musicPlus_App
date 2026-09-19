@@ -8,6 +8,7 @@ import MainLayout from "@/components/MainLayout";
 import Album from "@/pages/Album";
 import Songs from "./Songs";
 import Search from "./Search";
+import Queue from "./Queue";
 import NotFound from "./NotFound";
 
 export default function Router() {
@@ -21,6 +22,7 @@ export default function Router() {
           <Route path="songs" element={<Songs />} />
           <Route path="tracks" element={<Navigate to="/songs" replace />} />
           <Route path="search" element={<Search />} />
+          <Route path="queue" element={<Queue />} />
           <Route path="*" element={<NotFound />} />
         </Route>
 

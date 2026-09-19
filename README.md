@@ -6,13 +6,23 @@ MusicPlus is a full-stack music discovery and player project. The React client c
 
 - Responsive desktop and mobile application shell
 - Clerk sign-up, email verification, sign-in, and password reset
-- Shared local/Jamendo playback with track selection, next/previous, and progress display
+- Shared local/Jamendo playback with track selection, next/previous, progress, and an editable Up Next plan
 - Last.fm global top artists, tracks, tags, and artist albums
 - URL-driven Jamendo catalog search with loading, empty, and error states
 - Global discovery charts shown after sign-in
 - Express health endpoint with optional MongoDB connectivity
 
-Demo mix cards are display-only. The demo-playlist section is not listening history. Songs and playable Jamendo search results start their own ordered playback queues. Last.fm discovery remains metadata-only. Playlists, favorites, listening history, and queue editing remain future work.
+Demo mix cards are display-only. The demo-playlist section is not listening history. Songs and playable Jamendo search results start their own ordered playback queues. Last.fm discovery remains metadata-only. Saved playlists, favorites, listening history, and advanced queue editing remain future work.
+
+## Up Next and basic queue actions (Phase 4A)
+
+Open Up Next inline in the full player, or follow the mini player's Up Next link to the in-page queue view. Both show the current track and upcoming playback order; the mini player stays compact so it cannot cover queue actions. Songs and playable Jamendo search results offer Play Next and Add to Queue. Unavailable Jamendo results and Last.fm metadata cannot be queued. These actions retain the single audio element, selected source, playback position, and playing/paused intent. Search changes and route navigation do not change the edited queue. Selecting Play on a song deliberately replaces the queue with that song's catalog or current search results.
+
+Play Next puts a new track first in the upcoming plan. If that track is already upcoming, it moves its first upcoming occurrence to the front and does not create another. Add to Queue puts a new track after the existing upcoming plan; selecting a track already upcoming leaves its position unchanged. The current track and tracks absent from the current Up Next plan because they have already played cannot be queued again through these actions; the UI announces why. An action on an empty queue selects the track paused, ready for an explicit Play. Source-prefixed IDs identify tracks, and copied queue entries keep Jamendo attribution and license URLs.
+
+Natural completion and manual Next both consume Play Next entries before the remaining queue. Repeat one replays the current track on natural completion, leaving Up Next untouched; manual Next still advances. With repeat off, natural completion stops after the current plan, while manual Next wraps to the start as it did before this phase. Repeat all starts another full cycle after the plan. With shuffle on, Play Next remains first and Add to Queue goes after the remaining shuffled cycle. A shuffle toggle starts a new traversal from the current track; explicitly promoted tracks stay ahead of the reshuffled remainder. At a cycle boundary, a new shuffle order avoids an immediate repeat when another track exists.
+
+Previous restarts the current track after two seconds as before. Otherwise it retraces playback history; at the oldest history entry, shuffle stays there and ordinary order wraps to the preceding queue track. Next retraces forward history before unvisited entries. A queue edit after going backward makes those forward-history entries part of the upcoming plan: Play Next goes before them, Add to Queue goes after them and the remaining plan. No intended forward entry is silently removed. The queue is session-only; this phase has no remove, reorder, playlist, or persistence feature.
 
 ## Playback behavior (Phase 2)
 
@@ -131,8 +141,8 @@ Never commit real credentials. Both local `.env` files are ignored by Git.
 
 ## Portfolio roadmap
 
-1. Add queue editing controls.
-2. Build authenticated MongoDB playlists, favorites, and listening history.
+1. Build authenticated MongoDB playlists, favorites, and listening history.
+2. Add advanced queue editing such as remove and reorder.
 3. Extend existing component tests with API integration and browser end-to-end coverage.
 4. Deploy the client and API and add screenshots, architecture notes, and a demo video.
 

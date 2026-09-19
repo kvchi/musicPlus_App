@@ -3,6 +3,7 @@ import { headphones } from "@/assets/images";
 import { PlaybackFeedback, TrackAttribution } from "./PlaybackFeedback";
 import { SeekControl, VolumeControls } from "./MediaControls";
 import { PlaybackModes } from "./PlaybackModes";
+import { UpNextPanel } from "./UpNextPanel";
 import { useEffect, useState } from "react";
 import { CiPause1, CiPlay1 } from "react-icons/ci";
 import { IoPlayBackOutline, IoPlayForwardOutline } from "react-icons/io5";
@@ -36,6 +37,7 @@ export function NowPlaying() {
     <h3 className="text-xl font-semibold mb-4">Now Playing</h3>
     <p>Choose a track from Songs or search.</p>
     <PlaybackModes label="Full player" />
+    <UpNextPanel label="Full player" />
     <PlaybackFeedback />
   </div>;
 
@@ -78,6 +80,7 @@ export function NowPlaying() {
         </button>
       </div>
       <PlaybackModes label="Full player" />
+      <UpNextPanel label="Full player" />
       <div className="mt-3"><VolumeControls label="Full player" /></div>
       <PlaybackFeedback />
     </div>

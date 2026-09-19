@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { MusicContext } from "./music-player-context";
 import { hasPlayableAudio, localPlayableCatalog } from "@/lib/track-adapters";
 import type { PlayableTrack } from "@/types/playable-track";
-import { createTraversal, nextTraversal, previousTraversal, toggleTraversal } from "@/lib/queue-traversal";
+import { createTraversal, editTraversal, nextTraversal, previousTraversal, toggleTraversal, upcomingIndices } from "@/lib/queue-traversal";
 import type { RepeatMode } from "@/lib/queue-traversal";
 
 type Selection = { queue: readonly PlayableTrack[]; index: number };
@@ -59,6 +59,7 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
   const [controlsError, setControlsError] = useState<string | null>(null);
   const lastNonzeroVolumeRef = useRef(1);
   const [error, setError] = useState<string | null>(null);
+  const [queueNotice, setQueueNotice] = useState<string | null>(null);
   const intentRef = useRef(false);
   const operationRef = useRef(0);
   const sourceVersionRef = useRef(0);
@@ -199,7 +200,7 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
   }, [invalidateOperation, requestPlay]);
 
   const playQueue = useCallback((tracks: readonly PlayableTrack[], startIndex: number) => {
-    if (!tracks.length) { traversalRef.current = createTraversal(0, -1, shuffleRef.current); select(copyQueue([]), -1, false); return; }
+    if (!tracks.length) { traversalRef.current = createTraversal(0, -1, shuffleRef.current); select(copyQueue([]), -1, false); setQueueNotice(null); return; }
     if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex >= tracks.length) {
       setError("Choose a valid track to start playback.");
       return;
@@ -211,8 +212,53 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
     // Neither later search results nor caller mutations can replace this queue.
     traversalRef.current = createTraversal(tracks.length, startIndex, shuffleRef.current);
     select(copyQueue(tracks), startIndex, true);
+    setQueueNotice("Playing this selection replaced Up Next.");
   }, [select]);
   const playTrack = useCallback((track: PlayableTrack) => playQueue([track], 0), [playQueue]);
+  const queueTrack = useCallback((track: PlayableTrack, action: "next" | "end") => {
+    if (!hasPlayableAudio(track)) {
+      setQueueNotice("Audio unavailable. This track cannot be queued.");
+      return;
+    }
+    const { queue, index } = selectionRef.current;
+    if (!queue.length) {
+      const first = copyQueue([track]);
+      traversalRef.current = createTraversal(1, 0, shuffleRef.current);
+      select(first, 0, false);
+      setQueueNotice(`${track.title} is selected and ready to play.`);
+      return;
+    }
+    if (queue[index]?.id === track.id) {
+      setQueueNotice(`${track.title} is already the current track.`);
+      return;
+    }
+    const existing = queue.findIndex(item => item.id === track.id);
+    const upcoming = upcomingIndices(traversalRef.current);
+    if (existing >= 0 && !upcoming.includes(existing)) {
+      setQueueNotice(`${track.title} has already played in this queue. Select Play to start a new queue.`);
+      return;
+    }
+    if (existing >= 0 && action === "end") {
+      setQueueNotice(`${track.title} is already in Up Next.`);
+      return;
+    }
+    const nextQueue = existing < 0 ? copyQueue([...queue, track]) : queue;
+    const target = existing < 0 ? queue.length : existing;
+    traversalRef.current = editTraversal(traversalRef.current, target, action, existing < 0);
+    if (nextQueue !== queue) {
+      const updated = { queue: nextQueue, index };
+      selectionRef.current = updated;
+      setSelection(updated);
+    } else {
+      // A promoted entry still needs a render to publish the new Up Next order.
+      const updated = { queue, index };
+      selectionRef.current = updated;
+      setSelection(updated);
+    }
+    setQueueNotice(action === "next" ? `${track.title} will play next.` : `${track.title} was added to Up Next.`);
+  }, [select]);
+  const playNext = useCallback((track: PlayableTrack) => queueTrack(track, "next"), [queueTrack]);
+  const addToQueue = useCallback((track: PlayableTrack) => queueTrack(track, "end"), [queueTrack]);
   const retryPlayback = useCallback(() => {
     const { queue, index } = selectionRef.current;
     if (queue[index]) select(queue, index, true);
@@ -350,9 +396,11 @@ export const MusicContextProvider = ({ children }: { children: ReactNode }) => {
 
   return <MusicContext.Provider value={{
     selectedTrack: selection.queue[selection.index] ?? null, queue: selection.queue,
+    upNext: upcomingIndices(traversalRef.current).map(index => selection.queue[index]).filter((track): track is PlayableTrack => Boolean(track)),
+    queueNotice, playNext, addToQueue,
     currentIndex: selection.index, isPlaying, isLoading, progress, duration, error,
     canSeek, volume, isMuted, controlsError, seek, setVolume, toggleMute,
     repeatMode, setRepeatMode, cycleRepeatMode, isShuffled, toggleShuffle,
     playTrack, playQueue, retryPlayback, togglePlay, handleNext, handlePrev, audioRef,
-  }}><audio ref={audioRef} preload="metadata" />{children}</MusicContext.Provider>;
+  }}><audio ref={audioRef} preload="metadata" /><span aria-live="polite" className="sr-only">{queueNotice}</span>{children}</MusicContext.Provider>;
 };

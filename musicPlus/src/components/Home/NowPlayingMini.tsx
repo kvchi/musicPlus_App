@@ -3,11 +3,12 @@ import { headphones } from "@/assets/images";
 import { PlaybackFeedback, TrackAttribution } from "./PlaybackFeedback";
 import { SeekControl, VolumeControls } from "./MediaControls";
 import { PlaybackModes } from "./PlaybackModes";
+import { Link } from "react-router-dom";
 import { CiPause1, CiPlay1 } from "react-icons/ci";
 import { IoPlayBackOutline, IoPlayForwardOutline } from "react-icons/io5";
 
 export function NowPlayingMini() {
-  const { selectedTrack: track, isPlaying, isLoading, togglePlay, handleNext, handlePrev } =
+  const { selectedTrack: track, upNext, isPlaying, isLoading, togglePlay, handleNext, handlePrev } =
     useMusicPlayer();
 
   return (
@@ -52,6 +53,11 @@ export function NowPlayingMini() {
         <SeekControl label="Mini player" /><VolumeControls label="Mini player" />
       </div>
       <div className="max-w-7xl mx-auto px-4"><PlaybackModes label="Mini player" /></div>
+      <div className="max-w-7xl mx-auto px-4 text-center">
+        <Link to="/queue" className="inline-flex min-h-11 items-center rounded px-3 text-sm font-semibold text-emerald-300 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">
+          Up Next ({upNext.length})
+        </Link>
+      </div>
       <div className="max-w-7xl mx-auto px-4 pb-2"><PlaybackFeedback /></div>
     </div>
   );

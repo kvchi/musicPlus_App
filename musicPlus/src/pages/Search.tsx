@@ -6,7 +6,7 @@ import { adaptJamendoTrack } from "@/lib/track-adapters";
 import { TrackAttribution } from "@/components/Home/PlaybackFeedback";
 
 export default function Search() {
-  const { playQueue, selectedTrack, isPlaying, isLoading: playbackLoading, togglePlay } = useMusicPlayer();
+  const { playQueue, playNext, addToQueue, queueNotice, selectedTrack, isPlaying, isLoading: playbackLoading, togglePlay } = useMusicPlayer();
   const { results, query, isLoading, error, searchTracks, cancelSearch } = useSearch();
   const [retry, setRetry] = useState(0);
   const [searchParams] = useSearchParams();
@@ -19,7 +19,8 @@ export default function Search() {
   const matchesQuery = query === urlQuery;
   const visibleResults = matchesQuery && urlQuery && !isLoading && !error ? results : [];
   const loading = Boolean(urlQuery) && (!matchesQuery || isLoading);
-  const playableResults = visibleResults.map(adaptJamendoTrack).filter(track => track !== null);
+  const playableResults = visibleResults.map(adaptJamendoTrack).filter(track => track !== null)
+    .filter((track, index, all) => all.findIndex(item => item.id === track.id) === index);
 
   return (
     <section className="text-white">
@@ -30,6 +31,8 @@ export default function Search() {
         <h1 className="mt-2 text-3xl font-bold">
           {urlQuery ? `Results for “${urlQuery}”` : "Find your next favorite track"}
         </h1>
+        <p className="mt-2 text-sm text-neutral-400">Play starts a new results queue. Play Next and Add to Queue keep the current track playing.</p>
+        {queueNotice && <p className="mt-2 text-sm text-emerald-300">{queueNotice}</p>}
       </div>
 
       {loading && (
@@ -65,8 +68,9 @@ export default function Search() {
           <article
             key={track.id}
             aria-current={active ? "true" : undefined}
-            className="flex items-center gap-4 rounded-xl bg-neutral-900 p-4"
+            className="flex min-w-0 flex-col gap-3 rounded-xl bg-neutral-900 p-4 sm:flex-row sm:items-center"
           >
+            <div className="flex min-w-0 items-center gap-3 sm:flex-1">
             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-neutral-800">
               {track.image && (
                 <img
@@ -85,9 +89,11 @@ export default function Search() {
               {playable && <TrackAttribution track={playable} />}
               {!playable && <p className="text-xs text-neutral-400">Audio unavailable</p>}
             </div>
-            <span className="hidden sm:inline text-sm tabular-nums text-neutral-400">
+            <span className="hidden md:inline shrink-0 text-sm tabular-nums text-neutral-400">
               {formatDuration(track.duration)}
             </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
             <button type="button" disabled={!playable}
               aria-label={`${active && (isPlaying || playbackLoading) ? "Pause" : "Play"} ${track.name}`}
               aria-pressed={active && isPlaying}
@@ -96,9 +102,16 @@ export default function Search() {
                 if (active && (isPlaying || playbackLoading)) togglePlay();
                 else playQueue(playableResults, playableResults.findIndex(item => item.id === playable.id));
               }}
-              className="rounded-full bg-emerald-600 px-3 py-2 text-sm shrink-0 disabled:bg-neutral-700 disabled:opacity-60">
+              className="min-h-11 shrink-0 rounded-full bg-emerald-600 px-3 py-2 text-sm disabled:bg-neutral-700 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">
               {!playable ? "Unavailable" : active && playbackLoading ? "Loading…" : active && isPlaying ? "Pause" : "Play"}
             </button>
+            <button type="button" disabled={!playable} aria-label={`Play ${track.name} next`}
+              onClick={() => { if (playable) playNext(playable); }}
+              className="min-h-11 rounded-full border border-white/30 px-3 text-sm disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Play Next</button>
+            <button type="button" disabled={!playable} aria-label={`Add ${track.name} to queue`}
+              onClick={() => { if (playable) addToQueue(playable); }}
+              className="min-h-11 rounded-full border border-white/30 px-3 text-sm disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Add to Queue</button>
+            </div>
           </article>
         ); })}
       </div>
