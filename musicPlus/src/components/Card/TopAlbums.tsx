@@ -51,7 +51,8 @@ export default function TopAlbums({artist} : TopAlbumsProps) {
 
   return (
     <section className="p-4">
-      <h2 className="text-2xl font-bold mb-4 text-white">Top Albums</h2>
+      <h2 className="text-2xl font-bold mb-2 text-white">Top Albums</h2>
+      <p className="mb-4 text-sm text-neutral-300">Last.fm album metadata previews. These cards do not provide playable tracks.</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-6 gap-4">
         {albums.slice(0, 6).map((album) => (

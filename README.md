@@ -13,7 +13,7 @@ MusicPlus is a full-stack music discovery and player project. The React client c
 - Express health endpoint with optional MongoDB connectivity
 - Authenticated, owner-scoped saved playlists with local and Jamendo track metadata
 
-Demo mix cards are display-only. The demo-playlist section is not listening history. Songs and playable Jamendo search results start their own ordered playback queues. Last.fm discovery remains metadata-only. Favorites, listening history, and drag-and-drop queue editing remain future work.
+Home demo mix cards start ordered queues of bundled local tracks. The demo-playlist section is not listening history. Songs and playable Jamendo search results also start their own ordered playback queues. The Albums page presents an unplayable concept preview and Last.fm metadata previews; it has no album playback controls because no album audio source is verified. Favorites, listening history, and drag-and-drop queue editing remain future work.
 
 ## Authenticated saved playlists (Phase 5A)
 
