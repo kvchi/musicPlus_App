@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchJamendoTracks, parseJamendoResponse } from "@/api/jamendo";
+import { fetchJamendoTrackById, fetchJamendoTracks, parseJamendoResponse } from "@/api/jamendo";
 import { fetchTopArtist, fetchTopTags, parseTopAlbums, parseTopArtists, parseTopTags, parseTopTracks } from "@/api/lastFM";
 import { ProviderError, providerMessage } from "@/api/provider-response";
 
@@ -8,6 +8,19 @@ const jamendo = (results: unknown = []) => ({ headers: { status: "success", code
 const response = (body: unknown, ok = true) => ({ ok, json: async () => body }) as Response;
 
 describe("provider boundaries", () => {
+  it("resolves saved Jamendo IDs only when the current response matches", async () => {
+    vi.stubEnv("VITE_JAMENDO_API_URL", "https://api.jamendo.com/v3.0/");
+    vi.stubEnv("VITE_JAMENDO_CLIENT_ID", "test-client");
+    const fetchMock = vi.fn(async () => response(jamendo([{ ...song, id: "2", audio: "https://example.invalid/current.mp3" }])));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await fetchJamendoTrackById("1")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(await fetchJamendoTrackById("bad")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    fetchMock.mockResolvedValueOnce(response(jamendo([{ ...song, audio: "https://example.invalid/current.mp3" }])));
+    expect((await fetchJamendoTrackById("1"))?.id).toBe("1");
+    vi.unstubAllEnvs();
+  });
   it("retains Jamendo album_name and accepts genuine empty results", () => {
     expect(parseJamendoResponse(jamendo([song]))[0].album_name).toBe("Album");
     expect(parseJamendoResponse(jamendo())).toEqual([]);

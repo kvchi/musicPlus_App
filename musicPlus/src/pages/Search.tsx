@@ -4,6 +4,7 @@ import { useSearch } from "@/context/SearchContext";
 import { useMusicPlayer } from "@/context/music-player-context";
 import { adaptJamendoTrack } from "@/lib/track-adapters";
 import { TrackAttribution } from "@/components/Home/PlaybackFeedback";
+import { SaveTrackControl } from "@/components/SaveTrackControl";
 
 export default function Search() {
   const { playQueue, playNext, addToQueue, queueNotice, selectedTrack, isPlaying, isLoading: playbackLoading, togglePlay } = useMusicPlayer();
@@ -111,6 +112,7 @@ export default function Search() {
             <button type="button" disabled={!playable} aria-label={`Add ${track.name} to queue`}
               onClick={() => { if (playable) addToQueue(playable); }}
               className="min-h-11 rounded-full border border-white/30 px-3 text-sm disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Add to Queue</button>
+            {playable && <SaveTrackControl track={playable} />}
             </div>
           </article>
         ); })}

@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { LiaGlobeAfricaSolid } from "react-icons/lia";
 import { Disc, HeadphonesIcon, Home, Music, Search } from "lucide-react";
+import { useSavedPlaylists } from "@/context/saved-playlists-context";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ const navItems = [
 ];
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const library = useSavedPlaylists();
   const closeOnMobile = () => window.innerWidth < 1024 && onClose();
 
   return (
@@ -23,19 +25,21 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <button
           type="button"
           aria-label="Close navigation"
-          className="fixed inset-0 bg-black/80 lg:hidden z-30"
+          className="fixed inset-0 bg-black/80 lg:hidden z-[55]"
           onClick={onClose}
         />
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-full flex flex-col p-6 z-40 bg-black transform transition-transform duration-300 ${
+        className={`fixed top-0 left-0 h-full flex flex-col p-6 z-[60] bg-black transform transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0 w-[min(20rem,100vw)]`}
       >
         <div className="flex items-center gap-3 mb-8 text-white">
           <h1 className="text-xl font-bold">MusicPlus</h1>
           <HeadphonesIcon aria-hidden="true" />
+          <button type="button" aria-label="Close menu" onClick={onClose}
+            className="ml-auto min-h-11 rounded px-2 text-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 lg:hidden">×</button>
         </div>
 
         <nav aria-label="Primary navigation" className="space-y-4">
@@ -59,10 +63,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         <section className="mt-10 rounded-xl bg-neutral-900 p-4 text-white">
-          <p className="font-semibold">Your Library</p>
-          <p className="mt-2 text-sm text-neutral-400">
-            Playlist saving is the next feature on the roadmap. For now, explore the demo catalog.
-          </p>
+          <NavLink to="/library" onClick={closeOnMobile} className="font-semibold text-emerald-300 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Your Library</NavLink>
+          <p className="mt-2 text-sm text-neutral-400">{library?.signedIn
+            ? `${library.playlists.length} saved ${library.playlists.length === 1 ? "playlist" : "playlists"}`
+            : "Sign in to create and view saved playlists."}</p>
         </section>
 
         <div className="mt-auto text-white">

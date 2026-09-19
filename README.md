@@ -1,6 +1,6 @@
 # MusicPlus
 
-MusicPlus is a full-stack music discovery and player project. The React client combines a local demo playlist with Last.fm discovery data and Jamendo search. Clerk provides authentication, while the Express server supplies a health endpoint and an optional MongoDB connection. No playlist API is implemented.
+MusicPlus is a full-stack music discovery and player project. The React client combines a local demo playlist with Last.fm discovery data and Jamendo search. Clerk provides authentication, while the Express server supplies a health endpoint and private MongoDB-backed saved playlists.
 
 ## Current features
 
@@ -11,8 +11,28 @@ MusicPlus is a full-stack music discovery and player project. The React client c
 - URL-driven Jamendo catalog search with loading, empty, and error states
 - Global discovery charts shown after sign-in
 - Express health endpoint with optional MongoDB connectivity
+- Authenticated, owner-scoped saved playlists with local and Jamendo track metadata
 
-Demo mix cards are display-only. The demo-playlist section is not listening history. Songs and playable Jamendo search results start their own ordered playback queues. Last.fm discovery remains metadata-only. Saved playlists, favorites, listening history, and drag-and-drop queue editing remain future work.
+Demo mix cards are display-only. The demo-playlist section is not listening history. Songs and playable Jamendo search results start their own ordered playback queues. Last.fm discovery remains metadata-only. Favorites, listening history, and drag-and-drop queue editing remain future work.
+
+## Authenticated saved playlists (Phase 5A)
+
+Signed-in users can create a playlist in Your Library and save playable local Songs or Jamendo Search results. They can view their own playlists after refresh and remove saved tracks. Saved playlists are separate from the temporary Up Next queue; these edits do not call player controls or change current audio. A playlist stores one occurrence per source-prefixed track ID. Duplicate adds return `409`; remove affects only that playlist. A new Play selection or a queue edit does not alter saved playlists.
+
+The browser sends the current Clerk session token in `Authorization: Bearer` to same-origin `/api/playlists`. Vite proxies only `/api` to `http://127.0.0.1:4000` during local development. The Express API verifies the session with Clerk and derives the owner from `getAuth()`. All database queries include that owner. The server stores IDs and bounded display metadata, not audio URLs or credentials. Local IDs are checked against the bundled catalog. Saved local tracks play through the shared player. For a saved Jamendo track, Library checks current audio by track ID before offering Play; unavailable audio stays labelled unavailable. Playing a saved track replaces Up Next, while playlist edits leave playback alone.
+
+The authentication integration follows Clerk's [Express middleware and `getAuth()` reference](https://clerk.com/docs/reference/express/clerk-middleware) and [authenticated request guidance](https://clerk.com/docs/guides/development/making-requests). Server keys are loaded before the Express SDK is imported at runtime.
+
+Set the variable names in `server/.env.example` on the server side only: `DATABASE_URL`, `CLERK_PUBLISHABLE_KEY`, and `CLERK_SECRET_KEY`. The browser uses the existing `VITE_CLERK_PUBLISHABLE_KEY`; no server secret belongs in a `VITE_` variable. Without a MongoDB connection, `/health` remains available while playlist requests return `503`. The playlist API is private and has no CORS wildcard. Browser and API unit tests use mocked sessions and an in-memory model; they never write a production database.
+
+| Method | Route | Body | Success |
+| --- | --- | --- | --- |
+| GET | `/api/playlists` | — | `200 { playlists }` |
+| POST | `/api/playlists` | `{ name }` | `201 { playlist }` |
+| POST | `/api/playlists/:playlistId/tracks` | `{ track: { id, source, title, artist, attributionUrl?, licenseUrl? } }` | `200 { playlist }` |
+| DELETE | `/api/playlists/:playlistId/tracks/:trackId` | — | `200 { playlist }` |
+
+Requests without a verified session return `401`; inaccessible or missing playlists return `404`. Invalid input returns `400`, oversized JSON `413`, duplicate tracks `409`, and unavailable persistence `503`. Playlist names are 1–80 characters; playlists are limited to 50 per owner and 200 tracks each. The JSON body limit is 8 KB.
 
 ## Up Next and basic queue actions (Phase 4A)
 
@@ -149,7 +169,7 @@ Never commit real credentials. Both local `.env` files are ignored by Git.
 
 ## Portfolio roadmap
 
-1. Build authenticated MongoDB playlists, favorites, and listening history.
+1. Consider favorites and listening history after saved playlists.
 2. Add drag-and-drop queue editing if it improves the keyboard-accessible controls.
 3. Extend existing component tests with API integration and browser end-to-end coverage.
 4. Deploy the client and API and add screenshots, architecture notes, and a demo video.

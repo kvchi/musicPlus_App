@@ -1,5 +1,6 @@
 import { localPlayableCatalog } from "@/lib/track-adapters";
 import { useMusicPlayer } from "@/context/music-player-context";
+import { SaveTrackControl } from "@/components/SaveTrackControl";
 
 export default function Songs() {
   const { playQueue, playNext, addToQueue, queueNotice, selectedTrack, isPlaying, isLoading, togglePlay } = useMusicPlayer();
@@ -47,6 +48,7 @@ export default function Songs() {
               className="min-h-11 rounded-full border border-white/30 px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Play Next</button>
             <button type="button" aria-label={`Add ${track.title} to queue`} onClick={() => addToQueue(track)}
               className="min-h-11 rounded-full border border-white/30 px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Add to Queue</button>
+            <SaveTrackControl track={track} />
             </div>
           </article>
         ))}

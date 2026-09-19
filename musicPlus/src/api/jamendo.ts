@@ -31,3 +31,14 @@ export async function fetchJamendoTracks(query: string, signal?: AbortSignal) {
   url.search = new URLSearchParams({ client_id: clientId, format: "json", limit: "10", search: query }).toString();
   return parseJamendoResponse(await requestJson(url, signal));
 }
+
+/** Resolve a saved identity afresh; saved playlists never contain stream URLs. */
+export async function fetchJamendoTrackById(id: string, signal?: AbortSignal): Promise<JamendoTrack | null> {
+  if (!/^[1-9][0-9]{0,19}$/.test(id)) return null;
+  const base = providerUrl(import.meta.env.VITE_JAMENDO_API_URL);
+  const clientId = import.meta.env.VITE_JAMENDO_CLIENT_ID;
+  if (!clientId) throw new ProviderError("configuration");
+  const url = new URL("tracks/", `${base.href.replace(/\/$/, "")}/`);
+  url.search = new URLSearchParams({ client_id: clientId, format: "json", limit: "1", id, type: "single albumtrack" }).toString();
+  return parseJamendoResponse(await requestJson(url, signal)).find(track => track.id === id) ?? null;
+}
