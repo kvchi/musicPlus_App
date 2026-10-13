@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import type { ReactNode } from "react";
-import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, Link, MemoryRouter, Outlet, Route, RouterProvider, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MusicContextProvider } from "@/context/MusicContext";
@@ -1008,5 +1008,37 @@ describe("Phase 4B Up Next controls", () => {
     expect(view.container.querySelectorAll("audio")).toHaveLength(1);
     fireEvent.click(screen.getByRole("link", { name: "Home route" }));
     expect(screen.getByTestId("up-next").textContent).toBe("local:2");
+  });
+});
+
+describe("compact mini player", () => {
+  it("reveals secondary controls without changing active playback or progress", () => {
+    const view = render(<MusicContextProvider><MemoryRouter><NowPlayingMini /></MemoryRouter></MusicContextProvider>);
+    const audio = view.container.querySelector("audio")!;
+    const mini = screen.getByRole("region", { name: "Mini player" });
+    const more = within(mini).getByRole("button", { name: "More controls" });
+    expect(more.getAttribute("aria-expanded")).toBe("false");
+    expect(document.getElementById(more.getAttribute("aria-controls")!)).toBeNull();
+    expect(within(mini).getAllByRole("slider", { name: "Mini player seek" })).toHaveLength(1);
+    expect(within(mini).getAllByRole("button", { name: "Play playback" })).toHaveLength(1);
+    fireEvent.click(within(mini).getByRole("button", { name: "Play playback" }));
+    audio.currentTime = 31;
+    const src = audio.src;
+    const calls = [vi.mocked(audio.play).mock.calls.length, vi.mocked(audio.pause).mock.calls.length, vi.mocked(audio.load).mock.calls.length];
+    fireEvent.click(more);
+    expect(more.getAttribute("aria-expanded")).toBe("true");
+    const panel = document.getElementById(more.getAttribute("aria-controls")!)!;
+    expect(within(panel as HTMLElement).getByRole("slider", { name: "Mini player volume" })).toBeTruthy();
+    expect(within(panel as HTMLElement).getByRole("button", { name: "Mini player repeat: off" }).getAttribute("aria-pressed")).toBe("false");
+    expect(within(panel as HTMLElement).getByRole("button", { name: "Mini player shuffle: off" }).getAttribute("aria-pressed")).toBe("false");
+    expect(within(panel as HTMLElement).getByRole("link", { name: "Up Next (2)" })).toBeTruthy();
+    expect(within(panel as HTMLElement).getByRole("button", { name: "Next track" }).className).toContain("min-h-11");
+    expect(audio.src).toBe(src);
+    expect(audio.currentTime).toBe(31);
+    expect([vi.mocked(audio.play).mock.calls.length, vi.mocked(audio.pause).mock.calls.length, vi.mocked(audio.load).mock.calls.length]).toEqual(calls);
+    fireEvent.keyDown(panel, { key: "Escape" });
+    expect(more.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(more);
+    expect(audio.currentTime).toBe(31);
   });
 });

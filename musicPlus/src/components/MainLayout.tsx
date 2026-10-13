@@ -6,6 +6,7 @@ import { Outlet, useLocation } from "react-router-dom";
 
 export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [miniHeight, setMiniHeight] = useState(96);
   const location = useLocation();
   const hideMini = location.pathname === "/";
 
@@ -25,11 +26,12 @@ export default function MainLayout() {
             <Header onMenuToggle={() => setSidebarOpen(true)} />
           </div>
 
-          <main className={`min-w-0 mt-[100px] px-4 sm:px-6 ${hideMini ? "pb-28" : "pb-[26rem] sm:pb-80"}`}>
+          <main className={`min-w-0 mt-[100px] px-4 sm:px-6 ${hideMini ? "pb-28" : ""}`}
+            style={hideMini ? undefined : { paddingBottom: miniHeight + 16 }}>
             <Outlet />
           </main>
         </div>
-        {!hideMini && <NowPlayingMini />}
+        {!hideMini && <NowPlayingMini onHeightChange={setMiniHeight} />}
       </div>
   );
 }
